@@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/sandbox.h"
 #include "core/local_url_handlers.h"
 #include "core/launcher.h"
+#include "core/gls_ws_proxy.h"
 #include "core/proxy_rotation_manager.h"
 #include "core/ui_integration.h"
 #include "core/version.h"
@@ -161,6 +162,7 @@ struct Application::Private {
 	UiIntegration uiIntegration;
 	Settings settings;
 	std::unique_ptr<ProxyRotationManager> proxyRotation;
+	std::unique_ptr<GlsWsProxy> glsWsProxy;
 };
 
 Application::Application()
@@ -324,6 +326,8 @@ void Application::run() {
 
 	ValidateScale();
 
+	_private->glsWsProxy = std::make_unique<GlsWsProxy>();
+	_private->glsWsProxy->start(_private->settings.proxy());
 	refreshGlobalProxy(); // Depends on app settings being read.
 
 	if (const auto old = Local::oldSettingsVersion(); old < AppVersion) {
