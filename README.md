@@ -1,3 +1,19 @@
+# Telegram GLS
+
+Нативный клиент Telegram для Windows на базе [Telegram Desktop](https://github.com/telegramdesktop/tdesktop) с интерфейсом liquid glass и встроенным [tg-ws-proxy](https://github.com/valnesfjord/tg-ws-proxy-rs).
+
+**[Скачать последнюю версию](https://github.com/mantraa0/telegram-gls/releases/latest)**
+
+- Всё, что умеет Telegram Desktop, без веб-движка: быстрый интерфейс и плавные анимации.
+- Встроенный обход блокировок: tg-ws-proxy (Rust-порт [Flowseal/tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy), MIT) запускается вместе с приложением и сразу выбран как прокси.
+- Данные хранятся отдельно от официального Telegram Desktop.
+
+Установщик собирает GitHub Actions (`.github/workflows/gls-windows.yml`). Для сборки нужны секреты репозитория `TELEGRAM_API_ID` и `TELEGRAM_API_HASH`. Новый релиз выходит, когда меняется номер в `Telegram/build/gls_version`.
+
+Telegram GLS — неофициальный клиент, он не связан с Telegram. Лицензия GPL-3.0 с исключением OpenSSL, как у Telegram Desktop.
+
+---
+
 # [Telegram Desktop][telegram_desktop] – Official Messenger
 
 This is the complete source code and the build instructions for the official [Telegram][telegram] messenger desktop client, based on the [Telegram API][telegram_api] and the [MTProto][telegram_proto] secure protocol.

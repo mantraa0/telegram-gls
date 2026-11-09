@@ -1,0 +1,254 @@
+name: Telegram GLS for Windows
+
+on:
+  push:
+    branches: [dev]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gls-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PREPARE_PATH: Telegram/build/prepare/prepare.py
+  TG_WS_PROXY_REPO: valnesfjord/tg-ws-proxy-rs
+  TG_WS_PROXY_REF: 53f392280a370199ffe5c6ef0ac88808ed17c575
+
+jobs:
+  libraries:
+    name: Libraries
+    runs-on: windows-latest
+    timeout-minutes: 355
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Prepare directories
+        run: |
+          mkdir %userprofile%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
+
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          path: ${{ env.TBUILD }}\tdesktop
+
+      - name: Cache key
+        shell: bash
+        run: |
+          DOCPATH=$TBUILD/tdesktop/docs/building-win.md
+          SDK="$(grep "SDK version" $DOCPATH | sed -r 's/.*\*\*(.*)\*\* SDK version.*/\1/')"
+          echo "SDK=$SDK" >> $GITHUB_ENV
+          sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
+          { sha256sum $TBUILD/tdesktop/$PREPARE_PATH | awk '{ print $1 }'; echo "$SDK"; } > CACHE_KEY.txt
+          echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI"
+
+      - uses: Eden-CI/msvc-dev-cmd@master
+        with:
+          arch: x64
+          sdk: ${{ env.SDK }}
+          toolset: '14.44'
+
+      - name: NuGet sources
+        run: |
+          nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
+          nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
+
+      # Caches are restored and saved separately, so a run that hits the time limit
+      # still keeps every finished library and the next run continues from there
+      - name: Restore libraries
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.LibrariesPath }}
+          key: gls-libs-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            gls-libs-${{ env.CACHE_KEY }}-
+            gls-libs-
+
+      - name: Build libraries
+        id: prepare
+        timeout-minutes: 320
+        run: |
+          %TBUILD%\tdesktop\Telegram\build\prepare\win.bat skip-release silent
+
+      - name: Free up disk space
+        shell: bash
+        run: find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete || true
+
+      - name: Save libraries
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.LibrariesPath }}
+          key: gls-libs-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+  proxy:
+    name: tg-ws-proxy
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TG_WS_PROXY_REPO }}
+          ref: ${{ env.TG_WS_PROXY_REF }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --bin tg-ws-proxy
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tg-ws-proxy
+          path: target/release/tg-ws-proxy.exe
+          if-no-files-found: error
+
+  app:
+    name: App and installer
+    needs: [libraries, proxy]
+    runs-on: windows-latest
+    timeout-minutes: 355
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Check API credentials
+        shell: bash
+        env:
+          API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+        run: |
+          if [ -z "$API_ID" ] || [ -z "$API_HASH" ]; then
+            echo "::error::Add repository secrets TELEGRAM_API_ID and TELEGRAM_API_HASH (Settings > Secrets and variables > Actions), then re-run this workflow."
+            exit 1
+          fi
+
+      - name: Prepare directories
+        run: |
+          mkdir %userprofile%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
+
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          path: ${{ env.TBUILD }}\tdesktop
+
+      - name: Cache key and version
+        shell: bash
+        run: |
+          DOCPATH=$TBUILD/tdesktop/docs/building-win.md
+          SDK="$(grep "SDK version" $DOCPATH | sed -r 's/.*\*\*(.*)\*\* SDK version.*/\1/')"
+          echo "SDK=$SDK" >> $GITHUB_ENV
+          sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
+          { sha256sum $TBUILD/tdesktop/$PREPARE_PATH | awk '{ print $1 }'; echo "$SDK"; } > CACHE_KEY.txt
+          echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
+          VERSION_FILE=$TBUILD/tdesktop/Telegram/build/version
+          APP_VERSION=$(awk '/^AppVersionStr /{ print $2 }' $VERSION_FILE)
+          APP_VERSION_FULL=$(awk '/^AppVersionStr /{ print $2 }' $VERSION_FILE)
+          GLS_BUILD=$(tr -d '[:space:]' < $TBUILD/tdesktop/Telegram/build/gls_version)
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
+          echo "APP_VERSION_FULL=$APP_VERSION_FULL" >> $GITHUB_ENV
+          echo "RELEASE_TAG=v$APP_VERSION-gls.$GLS_BUILD" >> $GITHUB_ENV
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI"
+
+      - uses: Eden-CI/msvc-dev-cmd@master
+        with:
+          arch: x64
+          sdk: ${{ env.SDK }}
+          toolset: '14.44'
+
+      - name: NuGet sources
+        run: |
+          nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
+          nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
+
+      - name: Restore libraries
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.LibrariesPath }}
+          key: gls-libs-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            gls-libs-${{ env.CACHE_KEY }}-
+          fail-on-cache-miss: true
+
+      - name: Check libraries
+        run: |
+          %TBUILD%\tdesktop\Telegram\build\prepare\win.bat skip-release silent
+
+      - name: Configure and build
+        env:
+          API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+        run: |
+          cd %TBUILD%\tdesktop\Telegram
+          call configure.bat x64 ^
+          -D TDESKTOP_API_ID=%API_ID% ^
+          -D TDESKTOP_API_HASH=%API_HASH% ^
+          -D CMAKE_CONFIGURATION_TYPES=Release ^
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
+          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+          cmake --build ..\out --config Release --parallel
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tg-ws-proxy
+          path: ${{ env.TBUILD }}\tdesktop\out\Release
+
+      - name: Installer
+        run: |
+          set "ISCC=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if not exist "%ISCC%" choco install innosetup -y --no-progress
+          set "OUT=%TBUILD%\tdesktop\out\Release"
+          dir "%OUT%"
+          "%ISCC%" /dMyAppVersion=%APP_VERSION% /dMyAppVersionZero=%APP_VERSION% /dMyAppVersionFull=%APP_VERSION_FULL% "/dReleasePath=%OUT%" /dMyBuildTarget=win64 "%TBUILD%\tdesktop\Telegram\build\setup.iss"
+          mkdir artifact
+          move "%OUT%\TelegramGLS-setup-x64.*.exe" artifact\
+          mkdir artifact\portable
+          copy "%OUT%\Telegram.exe" artifact\portable\
+          copy "%OUT%\tg-ws-proxy.exe" artifact\portable\
+          if exist "%OUT%\modules" xcopy /e /i "%OUT%\modules" artifact\portable\modules
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Telegram-GLS-windows-x64
+          path: artifact\
+          if-no-files-found: error
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/dev" ]; then
+            echo "Not on dev, skipping release."
+            exit 0
+          fi
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $RELEASE_TAG exists: bump Telegram/build/gls_version for a new one."
+            exit 0
+          fi
+          gh release create "$RELEASE_TAG" artifact/TelegramGLS-setup-x64.*.exe \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Telegram GLS $APP_VERSION (сборка ${RELEASE_TAG##*.})" \
+            --notes-file "$TBUILD/tdesktop/.github/gls-release-notes.md"

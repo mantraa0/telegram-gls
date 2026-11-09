@@ -1,9 +1,9 @@
-#define MyAppShortName "Telegram"
-#define MyAppName "Telegram Desktop"
-#define MyAppPublisher "Telegram FZ-LLC"
-#define MyAppURL "https://desktop.telegram.org"
+#define MyAppShortName "Telegram GLS"
+#define MyAppName "Telegram GLS"
+#define MyAppPublisher "Telegram GLS"
+#define MyAppURL "https://github.com/mantraa0/telegram-gls"
 #define MyAppExeName "Telegram.exe"
-#define MyAppId "53F49750-6209-4FBF-9CA8-7A333C87D1ED"
+#define MyAppId "94C7CF0C-AAC7-4E54-8DE9-81BDFDB34AAB"
 #define CurrentYear GetDateTimeString('yyyy','','')
 
 [Setup]
@@ -34,13 +34,12 @@ CloseApplications=force
 DisableDirPage=no
 DisableProgramGroupPage=no
 WizardStyle=modern
-SignTool=sha256
 
 #ifndef MyOutputBaseFilename
   #if MyBuildTarget == "winarm"
     #define MyOutputBaseFilename "tsetup-arm64." + MyAppVersionFull
   #elif MyBuildTarget == "win64"
-    #define MyOutputBaseFilename "tsetup-x64." + MyAppVersionFull
+    #define MyOutputBaseFilename "TelegramGLS-setup-x64." + MyAppVersionFull
   #else
     #define MyOutputBaseFilename "tsetup." + MyAppVersionFull
   #endif
@@ -79,9 +78,16 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#ReleasePath}\Telegram.exe"; DestDir: "{app}"; Flags: ignoreversion
+#if FileExists(ReleasePath + "\Updater.exe")
 Source: "{#ReleasePath}\Updater.exe"; DestDir: "{app}"; Flags: ignoreversion
+#endif
+#if FileExists(ReleasePath + "\tg-ws-proxy.exe")
+Source: "{#ReleasePath}\tg-ws-proxy.exe"; DestDir: "{app}"; Flags: ignoreversion
+#endif
 #if MyBuildTarget != "winarm"
+#if FileExists(ReleasePath + "\" + ModulesFolder + "\d3d\d3dcompiler_47.dll")
 Source: "{#ReleasePath}\{#ModulesFolder}\d3d\d3dcompiler_47.dll"; DestDir: "{app}\{#ModulesFolder}\d3d"; Flags: ignoreversion
+#endif
 #endif
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
