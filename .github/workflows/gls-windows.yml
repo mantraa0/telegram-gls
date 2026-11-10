@@ -242,7 +242,7 @@ jobs:
         run: |
           mkdir D:\gls-out
           mklink /j %TBUILD%\tdesktop\out D:\gls-out
-          wmic logicaldisk get caption,freespace
+          powershell -NoProfile -Command "Get-PSDrive C,D | Format-Table Name, Used, Free"
 
       - name: Configure and build
         env:
@@ -270,9 +270,9 @@ jobs:
           if not exist "%ISCC%" choco install innosetup -y --no-progress
           set "OUT=%TBUILD%\tdesktop\out\Release"
           dir "%OUT%"
-          "%ISCC%" /dMyAppVersion=%APP_VERSION% /dMyAppVersionZero=%APP_VERSION% /dMyAppVersionFull=%APP_VERSION_FULL% "/dReleasePath=%OUT%" /dMyBuildTarget=win64 "%TBUILD%\tdesktop\Telegram\build\setup.iss"
+          "%ISCC%" /dMyAppVersion=%APP_VERSION% /dMyAppVersionZero=%APP_VERSION% /dMyAppVersionFull=%APP_VERSION_FULL% "/dReleasePath=%OUT%" /dMyBuildTarget=win64 "%TBUILD%\tdesktop\Telegram\build\setup.iss" || exit /b 1
           mkdir artifact
-          move "%OUT%\TelegramGLS-setup-x64.*.exe" artifact\
+          move "%OUT%\TelegramGLS-setup-x64.*.exe" artifact\ || exit /b 1
           mkdir artifact\portable
           copy "%OUT%\Telegram.exe" artifact\portable\
           copy "%OUT%\tg-ws-proxy.exe" artifact\portable\
