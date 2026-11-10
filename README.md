@@ -8,7 +8,7 @@
 - Встроенный обход блокировок: tg-ws-proxy (Rust-порт [Flowseal/tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy), MIT) запускается вместе с приложением и сразу выбран как прокси.
 - Данные хранятся отдельно от официального Telegram Desktop.
 
-Установщик собирает GitHub Actions (`.github/workflows/gls-windows.yml`). Для сборки нужны секреты репозитория `TELEGRAM_API_ID` и `TELEGRAM_API_HASH`. Новый релиз выходит, когда меняется номер в `Telegram/build/gls_version`.
+Установщик собирает GitHub Actions (`.github/workflows/gls-windows.yml`). Ключи приложения Telegram заданы в workflow; секреты репозитория `TELEGRAM_API_ID` и `TELEGRAM_API_HASH` их переопределяют. Новый релиз выходит, когда меняется номер в `Telegram/build/gls_version`.
 
 Telegram GLS — неофициальный клиент, он не связан с Telegram. Лицензия GPL-3.0 с исключением OpenSSL, как у Telegram Desktop.
 

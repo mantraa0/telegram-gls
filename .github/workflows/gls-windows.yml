@@ -126,17 +126,6 @@ jobs:
       run:
         shell: cmd
     steps:
-      - name: Check API credentials
-        shell: bash
-        env:
-          API_ID: ${{ secrets.TELEGRAM_API_ID }}
-          API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
-        run: |
-          if [ -z "$API_ID" ] || [ -z "$API_HASH" ]; then
-            echo "::error::Add repository secrets TELEGRAM_API_ID and TELEGRAM_API_HASH (Settings > Secrets and variables > Actions), then re-run this workflow."
-            exit 1
-          fi
-
       - name: Prepare directories
         run: |
           mkdir %userprofile%\TBuild\Libraries
@@ -197,8 +186,9 @@ jobs:
 
       - name: Configure and build
         env:
-          API_ID: ${{ secrets.TELEGRAM_API_ID }}
-          API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          # The app's credentials from my.telegram.org. Repository secrets with the same names override them
+          API_ID: ${{ secrets.TELEGRAM_API_ID || '36862800' }}
+          API_HASH: ${{ secrets.TELEGRAM_API_HASH || 'efbb9833537366b6c5270c856e31cebc' }}
         run: |
           cd %TBUILD%\tdesktop\Telegram
           call configure.bat x64 ^
