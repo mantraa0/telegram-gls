@@ -1,0 +1,30 @@
+name: GLS installer smoke test
+
+on:
+  push:
+    branches: [gls-installer-smoke]
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: tdesktop
+
+      - name: Installer
+        run: |
+          set "ISCC=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if exist "%ISCC%" (echo Inno Setup preinstalled) else (echo Inno Setup missing, installing & choco install innosetup -y --no-progress)
+          dir "C:\Program Files (x86)" | findstr /i inno
+          set "OUT=%GITHUB_WORKSPACE%\fake\Release"
+          mkdir "%OUT%\modules\x64\d3d"
+          copy C:\Windows\System32\notepad.exe "%OUT%\Telegram.exe"
+          copy C:\Windows\System32\notepad.exe "%OUT%\tg-ws-proxy.exe"
+          "%ISCC%" /dMyAppVersion=7.4.1 /dMyAppVersionZero=7.4.1 /dMyAppVersionFull=7.4.1 "/dReleasePath=%OUT%" /dMyBuildTarget=win64 "%GITHUB_WORKSPACE%\tdesktop\Telegram\build\setup.iss" || exit /b 1
+          mkdir artifact
+          move "%OUT%\TelegramGLS-setup-x64.*.exe" artifact\ || exit /b 1
+          dir artifact
