@@ -29,6 +29,27 @@ jobs:
       run:
         shell: cmd
     steps:
+      # Debug and release builds of Qt do not fit next to the preinstalled tools on C:
+      - name: Free disk space
+        shell: pwsh
+        run: |
+          Get-PSDrive C | Format-Table Used, Free
+          $dirs = @(
+            'C:\Android', 'C:\Program Files (x86)\Android', 'C:\Program Files\Android',
+            'C:\hostedtoolcache\windows\CodeQL', 'C:\hostedtoolcache\windows\go',
+            'C:\hostedtoolcache\windows\PyPy', 'C:\hostedtoolcache\windows\Ruby',
+            'C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk', 'C:\Strawberry', 'C:\Miniconda',
+            'C:\ghcup', 'C:\Program Files\Haskell', 'C:\Program Files\Microsoft SQL Server',
+            'C:\Program Files\PostgreSQL', 'C:\Program Files\MongoDB', 'C:\Program Files\Mozilla Firefox',
+            'C:\SeleniumWebDrivers', 'C:\Julia', 'C:\tools\php', 'C:\Program Files\Azure Cosmos DB Emulator',
+            'C:\Program Files\Google\Chrome', 'C:\msys64'
+          )
+          $jobs = foreach ($d in $dirs) {
+            if (Test-Path $d) { Start-Job -ScriptBlock { param($p) cmd /c "rmdir /s /q `"$p`"" } -ArgumentList $d }
+          }
+          if ($jobs) { $jobs | Wait-Job | Out-Null }
+          Get-PSDrive C | Format-Table Used, Free
+
       - name: Prepare directories
         run: |
           mkdir %userprofile%\TBuild\Libraries
@@ -137,6 +158,27 @@ jobs:
       run:
         shell: cmd
     steps:
+      # Debug and release builds of Qt do not fit next to the preinstalled tools on C:
+      - name: Free disk space
+        shell: pwsh
+        run: |
+          Get-PSDrive C | Format-Table Used, Free
+          $dirs = @(
+            'C:\Android', 'C:\Program Files (x86)\Android', 'C:\Program Files\Android',
+            'C:\hostedtoolcache\windows\CodeQL', 'C:\hostedtoolcache\windows\go',
+            'C:\hostedtoolcache\windows\PyPy', 'C:\hostedtoolcache\windows\Ruby',
+            'C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk', 'C:\Strawberry', 'C:\Miniconda',
+            'C:\ghcup', 'C:\Program Files\Haskell', 'C:\Program Files\Microsoft SQL Server',
+            'C:\Program Files\PostgreSQL', 'C:\Program Files\MongoDB', 'C:\Program Files\Mozilla Firefox',
+            'C:\SeleniumWebDrivers', 'C:\Julia', 'C:\tools\php', 'C:\Program Files\Azure Cosmos DB Emulator',
+            'C:\Program Files\Google\Chrome', 'C:\msys64'
+          )
+          $jobs = foreach ($d in $dirs) {
+            if (Test-Path $d) { Start-Job -ScriptBlock { param($p) cmd /c "rmdir /s /q `"$p`"" } -ArgumentList $d }
+          }
+          if ($jobs) { $jobs | Wait-Job | Out-Null }
+          Get-PSDrive C | Format-Table Used, Free
+
       - name: Prepare directories
         run: |
           mkdir %userprofile%\TBuild\Libraries
