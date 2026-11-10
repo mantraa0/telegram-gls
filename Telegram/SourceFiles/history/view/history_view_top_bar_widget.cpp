@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/profile/info_profile_values.h"
 #include "storage/storage_media_prepare.h"
 #include "storage/storage_shared_media.h"
+#include "gls/gls_glass.h"
 #include "mainwidget.h"
 #include "mainwindow.h"
 #include "main/main_session.h"
@@ -537,7 +538,15 @@ void TopBarWidget::paintEvent(QPaintEvent *e) {
 		: -st::topBarHeight;
 	const auto slidingTop = std::max(selectedButtonsTop, searchFieldTop);
 
-	p.fillRect(QRect(0, 0, width(), st::topBarHeight), st::topBarBg);
+	const auto barRect = QRect(0, 0, width(), st::topBarHeight);
+	if (_activeChat.key) {
+		Gls::PaintChatBackdrop(p, _controller, this, barRect);
+		auto tint = st::topBarBg->c;
+		tint.setAlphaF(tint.alphaF() * Gls::kBarTintAlpha);
+		p.fillRect(barRect, tint);
+	} else {
+		p.fillRect(barRect, st::topBarBg);
+	}
 	if (slidingTop < 0) {
 		p.translate(0, slidingTop + st::topBarHeight);
 		paintTopBar(p);

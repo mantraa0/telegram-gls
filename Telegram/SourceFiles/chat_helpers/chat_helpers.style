@@ -1309,7 +1309,7 @@ historyComposeField: InputField(defaultInputField) {
 	textMargins: margins(0px, 0px, 0px, 0px);
 	textAlign: align(left);
 	textFg: historyComposeAreaFg;
-	textBg: historyComposeAreaBg;
+	textBg: transparent;
 	heightMin: 36px;
 	heightMax: 72px;
 	placeholderFg: placeholderFg;
@@ -1412,7 +1412,7 @@ historyAttachEmojiInner: IconButton(historyAttach) {
 }
 historyAttachEmoji: EmojiButton {
 	inner: historyAttachEmojiInner;
-	bg: historyComposeAreaBg;
+	bg: transparent;
 	lineFg: historyEmojiCircleFg;
 	lineFgOver: historyEmojiCircleFgOver;
 }

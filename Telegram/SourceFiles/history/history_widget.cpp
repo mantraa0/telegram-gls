@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/core_settings.h"
 #include "core/file_utilities.h"
 #include "core/mime_type.h"
+#include "gls/gls_glass.h"
 #include "history/view/history_view_draw_to_reply.h"
 #include "history/view/controls/history_view_bot_menu_button.h"
 #include "history/view/controls/history_view_compose_stash.h"
@@ -11504,7 +11505,15 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 	}
 	p.setInactive(
 		controller()->isGifPausedAtLeastFor(Window::GifPauseReason::Any));
-	p.fillRect(myrtlrect(0, backy, width(), backh), st::historyReplyBg);
+	const auto glassMargin = Gls::GlassMargin();
+	Gls::PaintGlassPanel(
+		p,
+		myrtlrect(
+			glassMargin,
+			backy + glassMargin / 2,
+			width() - 2 * glassMargin,
+			backh - glassMargin),
+		Gls::GlassRadius());
 
 	const auto media = (!_previewDrawPreview && drawMsgText)
 		? drawMsgText->media()
