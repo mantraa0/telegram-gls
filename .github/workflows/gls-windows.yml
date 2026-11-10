@@ -78,6 +78,17 @@ jobs:
             gls-libs-${{ env.CACHE_KEY }}-
             gls-libs-
 
+      # An earlier prune removed the Rust sources that tdesktop_rust compiles while their
+      # stages stayed cached: drop those stages so the step below rebuilds them
+      - name: Repair pruned Rust stages
+        shell: bash
+        run: |
+          if [ -d "$LibrariesPath/tdesktop_rust" ] && [ ! -f "$LibrariesPath/tdesktop_rust/out/src/wallet_engine/wallet_engine.cpp" ]; then
+            for stage in tdesktop_rust tlottie wallet-engine; do
+              rm -rf "$LibrariesPath/$stage" "$LibrariesPath/cache_keys/$stage"
+            done
+          fi
+
       - name: Build libraries
         id: prepare
         timeout-minutes: 320
@@ -86,7 +97,7 @@ jobs:
 
       - name: Free up disk space
         shell: bash
-        run: find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete || true
+        run: find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' -o -path '*/tdesktop_rust/*' -o -path '*/tlottie/*' -o -path '*/wallet-engine/*' ')' -type f ')' -o -empty ')' -delete || true
 
       - name: Save libraries
         if: always()
