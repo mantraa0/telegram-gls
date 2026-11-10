@@ -93,7 +93,7 @@ jobs:
         id: prepare
         timeout-minutes: 320
         run: |
-          %TBUILD%\tdesktop\Telegram\build\prepare\win.bat skip-release silent
+          %TBUILD%\tdesktop\Telegram\build\prepare\win.bat silent
 
       - name: Free up disk space
         shell: bash
@@ -193,7 +193,7 @@ jobs:
 
       - name: Check libraries
         run: |
-          %TBUILD%\tdesktop\Telegram\build\prepare\win.bat skip-release silent
+          %TBUILD%\tdesktop\Telegram\build\prepare\win.bat silent
 
       - name: Configure and build
         env:
