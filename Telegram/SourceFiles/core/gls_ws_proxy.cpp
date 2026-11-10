@@ -15,9 +15,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtCore/QFileInfo>
 #include <QtCore/QProcess>
 
-#ifdef Q_OS_WIN
-#include "base/platform/win/base_windows_h.h"
-#endif // Q_OS_WIN
 
 namespace Core {
 namespace {
@@ -26,6 +23,10 @@ constexpr auto kProxyPort = 21443;
 constexpr auto kMaxRestarts = 5;
 constexpr auto kProxyHost = "127.0.0.1";
 constexpr auto kExecutableName = "tg-ws-proxy.exe";
+
+// Value of `CREATE_NO_WINDOW` from the Windows API: the proxy is a console
+// program, and without it Windows would open a console window for it
+constexpr auto kCreateNoWindow = 0x08000000;
 
 [[nodiscard]] QString ProxySecret() {
 	const auto seed = (cWorkingDir() + u"tg-ws-proxy"_q).toUtf8();
@@ -91,7 +92,7 @@ void GlsWsProxy::launch() {
 #ifdef Q_OS_WIN
 		_process->setCreateProcessArgumentsModifier([](
 				QProcess::CreateProcessArguments *args) {
-			args->flags |= CREATE_NO_WINDOW;
+			args->flags |= kCreateNoWindow;
 		});
 #endif // Q_OS_WIN
 		QObject::connect(

@@ -237,6 +237,13 @@ jobs:
         run: |
           %TBUILD%\tdesktop\Telegram\build\prepare\win.bat silent
 
+      # The release build output does not fit on C: next to the libraries, so it goes to D:
+      - name: Move build output to D
+        run: |
+          mkdir D:\gls-out
+          mklink /j %TBUILD%\tdesktop\out D:\gls-out
+          wmic logicaldisk get caption,freespace
+
       - name: Configure and build
         env:
           # The app's credentials from my.telegram.org. Repository secrets with the same names override them
