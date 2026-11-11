@@ -306,6 +306,9 @@ MainWidget::MainWidget(
 	) | rpl::on_next([=] {
 		updateControlsGeometry();
 	}, lifetime());
+	crl::on_main(this, [] {
+		Gls::ApplyDefaultsOnce();
+	});
 
 	Core::App().calls().currentCallValue(
 	) | rpl::on_next([=](Calls::Call *call) {
@@ -3326,6 +3329,12 @@ void MainWidget::handleStartFiles(QStringList paths) {
 
 bool MainWidget::animatingShow() const {
 	return _showAnimation != nullptr;
+}
+
+QRect MainWidget::glsDialogsGeometry() const {
+	return (_dialogs && !isOneColumn() && !_dialogs->isHidden())
+		? _dialogs->geometry()
+		: QRect();
 }
 
 bool MainWidget::isOneColumn() const {

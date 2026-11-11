@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/dialogs_widget.h"
 
+#include "gls/gls_proxy_section.h"
+
 #include "base/call_delayed.h"
 #include "base/qt/qt_key_modifiers.h"
 #include "base/options.h"
@@ -98,6 +100,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/info_memento.h"
 #include "inline_bots/bot_attach_web_view.h"
 #include "styles/style_dialogs.h"
+#include "styles/style_settings.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
 #include "styles/style_dialogs_widget.h"
@@ -725,6 +728,9 @@ Widget::Widget(
 	});
 
 	setupMainMenuToggle();
+	if (_layout == Layout::Main) {
+		_glsProxy = Gls::CreateProxyButton(_searchControls, controller);
+	}
 	setupShortcuts();
 	if (_stories) {
 		setupStories();
@@ -1680,9 +1686,12 @@ void Widget::updateScrollUpPosition() {
 		0,
 		_scrollToTop->height() + st::connectingMargin.top(),
 		_scrollToTopShown.value(_scrollToTopIsShown ? 1. : 0.));
+	const auto newChatSkip = (_glsNewChat && !_glsNewChat->isHidden())
+		? (_glsNewChat->height() + st::glsNewChatButtonMargin)
+		: 0;
 	_scrollToTop->moveToRight(
 		st::historyToDownPosition.x(),
-		_scroll->height() - top);
+		_scroll->height() - top - newChatSkip);
 	const auto shouldBeHidden
 		= !_scrollToTopIsShown && !_scrollToTopShown.animating();
 	if (shouldBeHidden != _scrollToTop->isHidden()) {
@@ -4652,8 +4661,13 @@ void Widget::updateControlsGeometry() {
 		? st::dialogsFilterSkip
 		: (st::dialogsFilterPadding.x() + _mainMenu.toggle->width()))
 		+ st::dialogsFilterPadding.x();
+	const auto proxyShown = _glsProxy && !narrowRatio;
+	if (_glsProxy) {
+		_glsProxy->setVisible(proxyShown);
+	}
 	const auto filterRight = st::dialogsFilterSkip
-		+ st::dialogsFilterPadding.x();
+		+ st::dialogsFilterPadding.x()
+		+ (proxyShown ? _glsProxy->width() : 0);
 	const auto filterWidth = std::max(ratiow, smallw)
 		- filterLeft
 		- filterRight;
@@ -4694,6 +4708,11 @@ void Widget::updateControlsGeometry() {
 		searchLeft,
 		st::dialogsFilterPadding.y());
 
+	if (proxyShown) {
+		_glsProxy->moveToLeft(
+			filterLeft + filterWidth + st::dialogsFilterSkip,
+			st::dialogsFilterPadding.y());
+	}
 	auto right = filterLeft + filterWidth;
 	_cancelSearch->moveToLeft(right - _cancelSearch->width(), _search->y());
 	right -= _jumpToDate->width();
@@ -4851,6 +4870,14 @@ void Widget::updateControlsGeometry() {
 		_scroll->scrollToY(newScrollTop);
 	} else {
 		listScrollUpdated();
+	}
+	if (_glsNewChat) {
+		const auto margin = st::glsNewChatButtonMargin;
+		_glsNewChat->setVisible(!narrowRatio && !_childList);
+		_glsNewChat->moveToRight(
+			margin,
+			_scroll->y() + _scroll->height() - _glsNewChat->height() - margin);
+		_glsNewChat->raise();
 	}
 	if (_scrollToTopIsShown) {
 		updateScrollUpPosition();

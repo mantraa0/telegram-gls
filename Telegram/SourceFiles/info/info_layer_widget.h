@@ -52,6 +52,7 @@ protected:
 	void doSetInnerFocus() override;
 
 	void paintEvent(QPaintEvent *e) override;
+	[[nodiscard]] QRect dockedGeometry() const;
 
 private:
 	void closeHook() override;

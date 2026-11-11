@@ -660,7 +660,10 @@ private:
 
 	void drawField(Painter &p, const QRect &rect);
 	[[nodiscard]] Ui::RpWidget *shownComposeButton() const;
-	void paintComposeGlass(QPainter &p, int top, int height);
+	void paintComposeGlass(QPainter &p, int top, int height, bool withSend);
+	[[nodiscard]] int composeLeft() const;
+	[[nodiscard]] int composeWidth() const;
+	[[nodiscard]] int composeSendSlot() const;
 	void paintEditHeader(
 		Painter &p,
 		const QRect &rect,

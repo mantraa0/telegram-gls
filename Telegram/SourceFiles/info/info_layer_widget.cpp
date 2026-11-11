@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/info_layer_widget.h"
 
+#include "mainwidget.h"
+
 #include "info/info_content_widget.h"
 #include "info/info_top_bar.h"
 #include "info/info_memento.h"
@@ -21,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "core/application.h"
 #include "styles/style_info.h"
+#include "styles/style_window.h"
 #include "styles/style_layers.h"
 
 namespace Info {
@@ -203,6 +206,8 @@ void LayerWidget::parentResized() {
 	//
 	//} else if (_controller->canShowThirdSectionWithoutResize()) {
 	//	takeToThirdSection();
+	} else if (const auto docked = dockedGeometry(); !docked.isEmpty()) {
+		resizeToWidth(docked.width());
 	} else {
 		auto newWidth = std::min(
 			parentWidth - 2 * st::infoMinimalLayerMargin,
@@ -296,7 +301,36 @@ int LayerWidget::resizeGetHeight(int newWidth) {
 	}
 }
 
+QRect LayerWidget::dockedGeometry() const {
+	// Settings take the place of the chat list, as in Telegram Web
+	if (!_contentWrap
+		|| !parentWidget()
+		|| !_contentWrap->key().settingsSelf()) {
+		return QRect();
+	}
+	const auto content = _controller->content();
+	const auto rect = content->glsDialogsGeometry();
+	if (rect.width() < st::columnMinimalWidthLeft) {
+		return QRect();
+	}
+	return QRect(
+		parentWidget()->mapFromGlobal(content->mapToGlobal(rect.topLeft())),
+		rect.size());
+}
+
 QRect LayerWidget::countGeometry(int newWidth) {
+	if (const auto docked = dockedGeometry(); !docked.isEmpty()) {
+		const auto height = docked.height();
+		_tillBottom = true;
+		_contentTillBottom = true;
+		_contentWrap->updateGeometry(
+			{ 0, 0, newWidth, height },
+			false,
+			true,
+			0,
+			height);
+		return QRect(docked.x(), docked.y(), newWidth, height);
+	}
 	const auto &parentSize = parentWidget()->size();
 	const auto windowWidth = parentSize.width();
 	const auto windowHeight = parentSize.height();

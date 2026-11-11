@@ -813,3 +813,6 @@ glsProxyLogLabel: FlatLabel(defaultFlatLabel) {
 	}
 	minWidth: 360px;
 }
+glsNewChatButtonSize: 56px;
+glsNewChatButtonShadow: 6px;
+glsNewChatButtonMargin: 14px;

@@ -348,6 +348,8 @@ private:
 	object_ptr<Ui::FadeWrapScaled<Ui::IconButton>> _jumpToDate;
 	object_ptr<Ui::CrossButton> _cancelSearch;
 	object_ptr<Ui::FadeWrapScaled<Ui::IconButton>> _lockUnlock;
+	Ui::RpWidget *_glsProxy = nullptr;
+	Ui::RpWidget *_glsNewChat = nullptr;
 
 	std::unique_ptr<Ui::MoreChatsBar> _moreChatsBar;
 

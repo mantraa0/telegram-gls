@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "gls/gls_proxy_section.h"
 
 #include "boxes/connection_box.h"
+#include "boxes/peer_list_controllers.h"
 #include "core/application.h"
 #include "core/core_settings.h"
 #include "core/core_settings_proxy.h"
@@ -20,17 +21,22 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/boxes/confirm_box.h"
 #include "ui/boxes/single_choice_box.h"
 #include "ui/layers/generic_box.h"
+#include "ui/effects/ripple_animation.h"
 #include "ui/painter.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
+#include "ui/widgets/popup_menu.h"
 #include "ui/wrap/padding_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
 #include "styles/style_boxes.h"
+#include "styles/style_dialogs.h"
 #include "styles/style_layers.h"
+#include "styles/style_menu_icons.h"
+#include "styles/style_widgets.h"
 #include "styles/style_settings.h"
 
 #include <QtGui/QClipboard>
@@ -620,7 +626,9 @@ void ShowLogBox(not_null<Window::SessionController*> controller) {
 		};
 		const auto label = box->addRow(object_ptr<Ui::FlatLabel>(
 			box,
-			proxy->logUpdates() | rpl::map(text) | rpl::start_with(text()),
+			rpl::single(rpl::empty) | rpl::then(
+				proxy->logUpdates()
+			) | rpl::map(text),
 			st::glsProxyLogLabel));
 		label->setSelectable(true);
 		box->addButton(rpl::single(Tr("Скопировать", "Copy")), [=] {
@@ -1200,6 +1208,218 @@ void ShowProxyCheckBox(not_null<Window::SessionController*> controller) {
 					lines.join(QChar('\n')));
 			});
 	}));
+}
+
+namespace {
+
+class ProxyButton final : public Ui::RippleButton {
+public:
+	ProxyButton(
+		QWidget *parent,
+		not_null<Window::SessionController*> controller);
+
+private:
+	void paintEvent(QPaintEvent *e) override;
+	QImage prepareRippleMask() const override;
+	QPoint prepareRippleStartPosition() const override;
+	void showMenu();
+
+	const not_null<Window::SessionController*> _controller;
+	base::unique_qptr<Ui::PopupMenu> _menu;
+	QColor _color;
+
+};
+
+ProxyButton::ProxyButton(
+	QWidget *parent,
+	not_null<Window::SessionController*> controller)
+: RippleButton(parent, st::dialogsMenuToggle.ripple)
+, _controller(controller) {
+	resize(st::dialogsMenuToggle.width, st::dialogsMenuToggle.height);
+	setAccessibleName(Tr("Прокси", "Proxy"));
+	setClickedCallback([=] { showMenu(); });
+	if (const auto proxy = GlsWsProxy::Instance()) {
+		rpl::combine(
+			proxy->stateValue(),
+			proxy->connectionValue()
+		) | rpl::on_next([=](GlsProxyState state, GlsProxyConnection type) {
+			_color = (type != GlsProxyConnection::BuiltIn)
+				? st::dialogsMenuIconFg->c
+				: (state == GlsProxyState::Running)
+				? kOkColor
+				: (state == GlsProxyState::Starting)
+				? kSlowColor
+				: kBadColor;
+			update();
+		}, lifetime());
+	}
+}
+
+void ProxyButton::paintEvent(QPaintEvent *e) {
+	auto p = QPainter(this);
+	paintRipple(
+		p,
+		st::dialogsMenuToggle.rippleAreaPosition.x(),
+		st::dialogsMenuToggle.rippleAreaPosition.y());
+	PainterHighQualityEnabler hq(p);
+	const auto size = st::dialogsMenuToggle.rippleAreaSize * 0.6;
+	PaintShield(
+		p,
+		QRectF(
+			(width() - size) / 2.,
+			(height() - size) / 2.,
+			size,
+			size),
+		_color.isValid() ? _color : st::dialogsMenuIconFg->c);
+}
+
+QImage ProxyButton::prepareRippleMask() const {
+	return Ui::RippleAnimation::EllipseMask(QSize(
+		st::dialogsMenuToggle.rippleAreaSize,
+		st::dialogsMenuToggle.rippleAreaSize));
+}
+
+QPoint ProxyButton::prepareRippleStartPosition() const {
+	return mapFromGlobal(QCursor::pos())
+		- st::dialogsMenuToggle.rippleAreaPosition;
+}
+
+void ProxyButton::showMenu() {
+	const auto proxy = GlsWsProxy::Instance();
+	if (!proxy) {
+		_controller->showSettings(ProxySectionId());
+		return;
+	}
+	_menu = base::make_unique_q<Ui::PopupMenu>(
+		this,
+		st::popupMenuWithIcons);
+	const auto builtIn = (proxy->connection() == GlsProxyConnection::BuiltIn);
+	const auto running = (proxy->state() == GlsProxyState::Running);
+	const auto route = proxy->fastestRoute();
+	const auto status = !builtIn
+		? Tr("Встроенный прокси выключен", "The built-in proxy is off")
+		: !running
+		? Tr("Встроенный прокси не подключён", "The proxy is not connected")
+		: route
+		? Tr("Подключено через %1 · %2", "Connected via %1 · %2")
+			.arg(RouteText(route->route))
+			.arg(Milliseconds(route->milliseconds))
+		: Tr("Встроенный прокси подключён", "The built-in proxy is connected");
+	_menu->addAction(status, nullptr, &st::menuIconNetwork)->setEnabled(false);
+	_menu->addSeparator();
+	_menu->addAction(
+		(builtIn
+			? Tr("Выключить встроенный прокси", "Turn off the built-in proxy")
+			: Tr("Включить встроенный прокси", "Turn on the built-in proxy")),
+		[=] {
+			proxy->setConnection(builtIn
+				? GlsProxyConnection::Direct
+				: GlsProxyConnection::BuiltIn);
+		},
+		builtIn ? &st::menuIconBlock : &st::menuIconUnblock);
+	_menu->addAction(
+		Tr("Проверить соединение", "Check connection"),
+		[=] { ShowProxyCheckBox(_controller); },
+		&st::menuIconRestore);
+	_menu->addAction(
+		Tr("Настройки прокси", "Proxy settings"),
+		[=] { _controller->showSettings(ProxySectionId()); },
+		&st::menuIconSettings);
+	_menu->popup(mapToGlobal(QPoint(0, height())));
+}
+
+class NewChatButton final : public Ui::RippleButton {
+public:
+	NewChatButton(
+		QWidget *parent,
+		not_null<Window::SessionController*> controller);
+
+private:
+	void paintEvent(QPaintEvent *e) override;
+	QImage prepareRippleMask() const override;
+	void showMenu();
+
+	const not_null<Window::SessionController*> _controller;
+	base::unique_qptr<Ui::PopupMenu> _menu;
+
+};
+
+NewChatButton::NewChatButton(
+	QWidget *parent,
+	not_null<Window::SessionController*> controller)
+: RippleButton(parent, st::defaultRippleAnimation)
+, _controller(controller) {
+	const auto size = st::glsNewChatButtonSize;
+	resize(size + 2 * st::glsNewChatButtonShadow, size + 2 * st::glsNewChatButtonShadow);
+	setAccessibleName(Tr("Новое сообщение", "New message"));
+	setClickedCallback([=] { showMenu(); });
+}
+
+void NewChatButton::paintEvent(QPaintEvent *e) {
+	auto p = QPainter(this);
+	PainterHighQualityEnabler hq(p);
+	const auto shadow = st::glsNewChatButtonShadow;
+	const auto circle = QRectF(rect()).marginsRemoved(
+		{ shadow * 1., shadow * 1., shadow * 1., shadow * 1. });
+	const auto accent = st::windowBgActive->c;
+	for (auto i = shadow; i > 0; --i) {
+		p.setPen(Qt::NoPen);
+		p.setBrush(WithAlpha(accent, 0.06 * (shadow - i + 1) / shadow));
+		p.drawEllipse(circle.marginsAdded({ i * 1., i * 1., i * 1., i * 1. })
+			.translated(0, shadow / 3.));
+	}
+	auto gradient = QLinearGradient(circle.topLeft(), circle.bottomRight());
+	gradient.setColorAt(0., accent.lighter(115));
+	gradient.setColorAt(1., accent.darker(108));
+	p.setBrush(gradient);
+	p.setPen(QPen(WithAlpha(QColor(255, 255, 255), 0.3), 1.));
+	p.drawEllipse(circle);
+	paintRipple(p, shadow, shadow);
+	st::menuIconEdit.paintInCenter(
+		p,
+		circle.toRect(),
+		st::windowFgActive->c);
+}
+
+QImage NewChatButton::prepareRippleMask() const {
+	return Ui::RippleAnimation::EllipseMask(QSize(
+		st::glsNewChatButtonSize,
+		st::glsNewChatButtonSize));
+}
+
+void NewChatButton::showMenu() {
+	_menu = base::make_unique_q<Ui::PopupMenu>(
+		this,
+		st::popupMenuWithIcons);
+	_menu->addAction(
+		Tr("Новый канал", "New channel"),
+		[=] { _controller->showNewChannel(); },
+		&st::menuIconChannel);
+	_menu->addAction(
+		Tr("Новая группа", "New group"),
+		[=] { _controller->showNewGroup(); },
+		&st::menuIconGroups);
+	_menu->addAction(
+		Tr("Новое сообщение", "New message"),
+		[=] { _controller->show(PrepareContactsBox(_controller)); },
+		&st::menuIconProfile);
+	_menu->popup(mapToGlobal(QPoint(
+		width() - _menu->width(),
+		-_menu->height())));
+}
+
+} // namespace
+
+not_null<Ui::RpWidget*> CreateProxyButton(
+		not_null<QWidget*> parent,
+		not_null<Window::SessionController*> controller) {
+	return Ui::CreateChild<ProxyButton>(parent.get(), controller);
+}
+
+not_null<Ui::RpWidget*> CreateNewChatButton(
+		not_null<QWidget*> parent,
+		not_null<Window::SessionController*> controller) {
+	return Ui::CreateChild<NewChatButton>(parent.get(), controller);
 }
 
 rpl::producer<QString> ProxyStatusValue() {

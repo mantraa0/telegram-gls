@@ -1913,3 +1913,24 @@ aiComposeBodyLabel: FlatLabel(defaultFlatLabel) {
 		}
 	}
 }
+
+glsHistorySend: SendButton(historySend) {
+	sendIconPosition: point(11px, 11px);
+	sendIconFillPadding: 10px;
+	inner: IconButton(historyAttach) {
+		width: 46px;
+		height: 46px;
+		icon: icon {{ "chat/input_send_round", windowFgActive }};
+		iconOver: icon {{ "chat/input_send_round", windowFgActive }};
+		rippleAreaSize: 44px;
+		rippleAreaPosition: point(1px, 1px);
+	}
+	sendIconFg: windowFgActive;
+}
+glsComposeSendSkip: 8px;
+glsComposeSendInset: 1px;
+glsComposeInnerSkip: 4px;
+glsComposeRadius: 26px;
+glsRecordBar: RecordBar(defaultRecordBar) {
+	radius: 23px;
+}

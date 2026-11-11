@@ -9,6 +9,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "settings/settings_type.h"
 
+namespace Ui {
+class RpWidget;
+} // namespace Ui
+
 namespace Window {
 class SessionController;
 } // namespace Window
@@ -26,5 +30,16 @@ void ShowProxyCheckBox(not_null<Window::SessionController*> controller);
 
 // Whether the built-in proxy works now, for status colors
 [[nodiscard]] rpl::producer<bool> ProxyHealthyValue();
+
+// The shield in the chat list header: its color tells the proxy state,
+// a click opens a menu with the main proxy actions
+[[nodiscard]] not_null<Ui::RpWidget*> CreateProxyButton(
+	not_null<QWidget*> parent,
+	not_null<Window::SessionController*> controller);
+
+// The round floating button of the chat list with the new chat menu
+[[nodiscard]] not_null<Ui::RpWidget*> CreateNewChatButton(
+	not_null<QWidget*> parent,
+	not_null<Window::SessionController*> controller);
 
 } // namespace Gls

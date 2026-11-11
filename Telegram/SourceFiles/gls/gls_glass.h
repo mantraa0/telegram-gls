@@ -57,13 +57,15 @@ void PaintWallpaper(
 	QRect clip);
 
 // Frosted panel: blurred wallpaper under a translucent tint, a soft sheen,
-// a hairline border and a light highlight along the top edge
+// a hairline border and a light highlight along the top edge. Each `slot`
+// keeps its own cache, so a widget can paint several shapes
 void PaintGlass(
 	QPainter &p,
 	not_null<Window::SessionController*> controller,
 	not_null<QWidget*> widget,
 	QRect rect,
-	int radius);
+	int radius,
+	int slot = 0);
 
 // Called after the wallpaper is painted, fires `BackdropChanges` when
 // the wallpaper image differs from the one the panels show. Changes of
@@ -90,5 +92,16 @@ void PaintRowBackground(
 [[nodiscard]] int GlassRadius();
 [[nodiscard]] int BarRadius();
 [[nodiscard]] int ComposeSkip();
+
+// Applies the Telegram GLS defaults once: folder tabs above the chat list
+// and the light theme instead of the classic one
+void ApplyDefaultsOnce();
+
+// A bar across the chat: the wallpaper and a glass pill with gaps around it
+void PaintBar(
+	QPainter &p,
+	not_null<Window::SessionController*> controller,
+	not_null<QWidget*> widget,
+	QRect rect);
 
 } // namespace Gls

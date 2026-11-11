@@ -363,25 +363,25 @@ std::vector<EmbeddedScheme> EmbeddedThemes() {
 		},
 		EmbeddedScheme{
 			EmbeddedType::DayBlue,
-			qColor("7ec4ea"),
-			qColor("d7f0ff"),
+			qColor("a3c48f"),
+			qColor("eeffde"),
 			qColor("ffffff"),
-			qColor("d7f0ff"),
+			qColor("eeffde"),
 			qColor("ffffff"),
 			name(tr::lng_settings_theme_day),
 			":/gui/day-blue.tdesktop-theme",
-			qColor("40a7e3")
+			qColor("3390ec")
 		},
 		EmbeddedScheme{
 			EmbeddedType::Night,
-			qColor("485761"),
-			qColor("5ca7d4"),
-			qColor("6b808d"),
-			qColor("6b808d"),
-			qColor("5ca7d4"),
+			qColor("3a2f5c"),
+			qColor("8774e1"),
+			qColor("2b2b33"),
+			qColor("2b2b33"),
+			qColor("8774e1"),
 			name(tr::lng_settings_theme_tinted),
 			":/gui/night.tdesktop-theme",
-			qColor("5288c1")
+			qColor("8774e1")
 		},
 		EmbeddedScheme{
 			EmbeddedType::NightGreen,

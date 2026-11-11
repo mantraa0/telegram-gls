@@ -9,6 +9,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "base/event_filter.h"
 #include "base/options.h"
+#include "core/application.h"
+#include "core/core_settings.h"
 #include "mainwindow.h"
 #include "ui/chat/chat_theme.h"
 #include "ui/image/image_prepare.h"
@@ -16,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/rp_widget.h"
 #include "ui/ui_utility.h"
 #include "window/section_widget.h"
+#include "window/themes/window_theme.h"
 #include "window/window_session_controller.h"
 #include "styles/style_chat_helpers.h"
 #include "styles/style_dialogs.h"
@@ -45,6 +48,9 @@ const char kOptionGlassTint[] = "gls-glass-tint";
 const char kOptionGlassBlur[] = "gls-glass-blur";
 const char kOptionGlassRadius[] = "gls-glass-radius";
 const char kOptionGlassGaps[] = "gls-glass-gaps";
+const char kOptionDayThemeApplied[] = "gls-day-theme-applied";
+const char kOptionLayoutApplied[] = "gls-layout-applied";
+const auto kDayThemePath = u":/gui/day-blue.tdesktop-theme"_q;
 
 base::options::toggle OptionGlass({
 	.id = kOptionGlass,
@@ -79,6 +85,18 @@ base::options::toggle OptionGlassGaps({
 	.name = "Liquid glass gaps",
 	.description = "Float the panels with gaps between them.",
 	.defaultValue = true,
+});
+
+base::options::toggle OptionLayoutApplied({
+	.id = kOptionLayoutApplied,
+	.name = "Telegram GLS layout",
+	.description = "The folder tabs of Telegram GLS were set up once.",
+});
+
+base::options::toggle OptionDayThemeApplied({
+	.id = kOptionDayThemeApplied,
+	.name = "Telegram GLS day theme",
+	.description = "The light theme of Telegram GLS was applied once.",
 });
 
 struct BlurredWallpaper {
@@ -164,22 +182,31 @@ struct PanelCache {
 		| qint64(GlassBlur());
 }
 
-[[nodiscard]] std::map<const QWidget*, PanelCache> &PanelCaches() {
-	static auto result = std::map<const QWidget*, PanelCache>();
+using PanelKey = std::pair<const QWidget*, int>;
+
+[[nodiscard]] std::map<PanelKey, PanelCache> &PanelCaches() {
+	static auto result = std::map<PanelKey, PanelCache>();
 	return result;
 }
 
-[[nodiscard]] PanelCache &PanelCacheFor(not_null<QWidget*> widget) {
+[[nodiscard]] PanelCache &PanelCacheFor(not_null<QWidget*> widget, int slot) {
 	auto &caches = PanelCaches();
 	const auto raw = widget.get();
-	const auto i = caches.find(raw);
+	const auto key = PanelKey(raw, slot);
+	const auto i = caches.find(key);
 	if (i != end(caches)) {
 		return i->second;
 	}
-	QObject::connect(raw, &QObject::destroyed, [=] {
-		PanelCaches().erase(raw);
-	});
-	return caches.emplace(raw, PanelCache()).first->second;
+	const auto known = caches.lower_bound(PanelKey(raw, std::numeric_limits<int>::min()));
+	if (known == end(caches) || known->first.first != raw) {
+		QObject::connect(raw, &QObject::destroyed, [=] {
+			auto &caches = PanelCaches();
+			caches.erase(
+				caches.lower_bound(PanelKey(raw, std::numeric_limits<int>::min())),
+				caches.upper_bound(PanelKey(raw, std::numeric_limits<int>::max())));
+		});
+	}
+	return caches.emplace(key, PanelCache()).first->second;
 }
 
 void RenderPanel(
@@ -346,7 +373,8 @@ void PaintGlass(
 		not_null<Window::SessionController*> controller,
 		not_null<QWidget*> widget,
 		QRect rect,
-		int radius) {
+		int radius,
+		int slot) {
 	if (rect.isEmpty()) {
 		return;
 	}
@@ -357,7 +385,7 @@ void PaintGlass(
 		return;
 	}
 	const auto &blurred = Blurred(controller->currentChatTheme(), fill);
-	auto &cache = PanelCacheFor(widget);
+	auto &cache = PanelCacheFor(widget, slot);
 	const auto position = *origin + rect.topLeft();
 	if (cache.serial != blurred.serial
 		|| cache.size != rect.size()
@@ -571,6 +599,39 @@ rpl::producer<> SettingsChanges() {
 		OptionGlassBlur.changes(),
 		OptionGlassRadius.changes(),
 		OptionGlassGaps.changes());
+}
+
+void ApplyDefaultsOnce() {
+	if (!OptionLayoutApplied.value()) {
+		OptionLayoutApplied.set(true);
+		Core::App().settings().setChatFiltersHorizontal(true);
+		Core::App().saveSettingsDelayed();
+	}
+
+	using namespace Window::Theme;
+	if (OptionDayThemeApplied.value() || IsNightMode()) {
+		return;
+	}
+	OptionDayThemeApplied.set(true);
+	if (Background()->themeObject().pathAbsolute.isEmpty()) {
+		ApplyDefaultWithPath(kDayThemePath);
+		KeepApplied();
+	}
+}
+
+void PaintBar(
+		QPainter &p,
+		not_null<Window::SessionController*> controller,
+		not_null<QWidget*> widget,
+		QRect rect) {
+	const auto margin = GlassMargin();
+	PaintWallpaper(p, controller, widget, rect);
+	PaintGlass(
+		p,
+		controller,
+		widget,
+		rect.marginsRemoved({ margin, margin / 2, margin, margin / 2 }),
+		BarRadius());
 }
 
 } // namespace Gls

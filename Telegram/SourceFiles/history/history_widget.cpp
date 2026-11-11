@@ -295,7 +295,7 @@ HistoryWidget::HistoryWidget(
 , _supportAutocomplete(session().supportMode()
 	? object_ptr<Support::Autocomplete>(this, &session())
 	: nullptr)
-, _send(std::make_shared<Ui::SendButton>(this, st::historySend))
+, _send(std::make_shared<Ui::SendButton>(this, st::glsHistorySend))
 , _aiButton(Ui::CreateChild<HistoryView::Controls::ComposeAiButton>(
 	this,
 	st::historyAiComposeButton))
@@ -332,9 +332,13 @@ HistoryWidget::HistoryWidget(
 , _botCommandStart(this, st::historyBotCommandStart)
 , _voiceRecordBar(std::make_unique<VoiceRecordBar>(
 	this,
-	controller->uiShow(),
-	_send,
-	st::historySendSize.height()))
+	HistoryView::Controls::VoiceRecordBarDescriptor{
+		.outerContainer = this,
+		.show = controller->uiShow(),
+		.send = _send,
+		.stOverride = &st::glsRecordBar,
+		.recorderHeight = st::historySendSize.height(),
+	}))
 , _forwardPanel(std::make_unique<ForwardPanel>([=] { updateField(); }))
 , _field(
 	this,
@@ -6646,9 +6650,9 @@ void HistoryWidget::mouseMoveEvent(QMouseEvent *e) {
 void HistoryWidget::updateOverStates(QPoint pos) {
 	const auto isReadyToForward = readyToForward();
 	const auto detailsRect = QRect(
-		0,
+		composeLeft(),
 		_field->y() - st::historySendPadding - st::historyReplyHeight,
-		width() - _fieldBarCancel->width(),
+		composeWidth() - composeSendSlot() - _fieldBarCancel->width(),
 		st::historyReplyHeight);
 	const auto hasWebPage = !!_previewDrawPreview;
 	const auto inDetails = detailsRect.contains(pos)
@@ -7680,7 +7684,9 @@ void HistoryWidget::moveFieldControls() {
 // (_botStart|_unblock|_joinChannel|_muteUnmute|_reportMessages)
 
 	auto buttonsBottom = bottom - _attachToggle->height();
-	auto left = Gls::ComposeSkip();
+	const auto composeLeft = this->composeLeft();
+	const auto sendSlot = composeSendSlot();
+	auto left = composeLeft + st::glsComposeInnerSkip;
 	if (_botMenu) {
 		const auto skip = st::historyBotMenuSkip;
 		_botMenu->moveToLeft(left + skip, buttonsBottom + skip);
@@ -7703,9 +7709,10 @@ void HistoryWidget::moveFieldControls() {
 			left,
 			bottom - fieldHeight() - st::historySendPadding);
 	}
-	auto right = Gls::ComposeSkip();
-	_send->moveToRight(right, buttonsBottom); right += _send->width();
-	_voiceRecordBar->moveToLeft(0, bottom - _voiceRecordBar->height());
+	auto right = composeLeft;
+	_send->moveToRight(right, buttonsBottom);
+	right += sendSlot + st::glsComposeInnerSkip;
+	_voiceRecordBar->moveToLeft(composeLeft, bottom - _voiceRecordBar->height());
 	_tabbedSelectorToggle->moveToRight(right, buttonsBottom);
 	_botKeyboardHide->moveToRight(right, buttonsBottom);
 	right += _botKeyboardHide->width();
@@ -7739,7 +7746,7 @@ void HistoryWidget::moveFieldControls() {
 	updateDiscardRichDraftGeometry();
 
 	_fieldBarCancel->moveToRight(
-		0,
+		composeLeft + sendSlot,
 		_field->y() - st::historySendPadding - _fieldBarCancel->height());
 	if (_inlineResults) {
 		_inlineResults->moveBottom(_field->y() - st::historySendPadding);
@@ -7754,9 +7761,9 @@ void HistoryWidget::moveFieldControls() {
 	}
 
 	const auto fullWidthButtonRect = myrtlrect(
-		0,
+		composeLeft,
 		bottom - _botStart->height(),
-		width(),
+		composeWidth(),
 		_botStart->height());
 	_botStart->setGeometry(fullWidthButtonRect);
 	_unblock->setGeometry(fullWidthButtonRect);
@@ -7770,10 +7777,10 @@ void HistoryWidget::moveFieldControls() {
 
 void HistoryWidget::updateFieldSize() {
 	const auto kbShowShown = _history && !_kbShown && _keyboard->hasMarkup();
-	auto fieldWidth = width()
+	auto fieldWidth = composeWidth()
+		- composeSendSlot()
+		- 2 * st::glsComposeInnerSkip
 		- _attachToggle->width()
-		- 2 * Gls::ComposeSkip()
-		- _send->width()
 		- _tabbedSelectorToggle->width();
 	if (_botMenu) {
 		fieldWidth -= st::historyBotMenuSkip + _botMenu->width();
@@ -8379,7 +8386,7 @@ void HistoryWidget::updateControlsGeometry() {
 		: 0;
 	const auto innerWidth = width - tabsLeftSkip;
 
-	_voiceRecordBar->resizeToWidth(width);
+	_voiceRecordBar->resizeToWidth(composeWidth() - composeSendSlot());
 
 	moveFieldControls();
 
@@ -9884,6 +9891,12 @@ void HistoryWidget::checkPinnedBarState() {
 		return controller()->isGifPausedAtLeastFor(
 			Window::GifPauseReason::Any);
 	}, controller()->gifPauseLevelChanged());
+	_pinnedBar->setBackgroundPainter([=](
+			QPainter &p,
+			not_null<QWidget*> widget,
+			QRect clip) {
+		Gls::PaintBar(p, controller(), widget, widget->rect());
+	});
 	auto pinnedRefreshed = Info::Profile::SharedMediaCountValue(
 		_peer,
 		MsgId(0), // topicRootId
@@ -11507,18 +11520,51 @@ Ui::RpWidget *HistoryWidget::shownComposeButton() const {
 	return nullptr;
 }
 
-void HistoryWidget::paintComposeGlass(QPainter &p, int top, int height) {
+int HistoryWidget::composeLeft() const {
 	const auto margin = Gls::GlassMargin();
-	Gls::PaintGlass(
-		p,
-		controller(),
-		this,
-		myrtlrect(
-			margin,
-			top + margin / 2,
-			width() - 2 * margin,
-			height - margin),
-		Gls::BarRadius());
+	const auto wide = Core::App().settings().adaptiveForWide()
+		&& (width() >= st::adaptiveChatWideWidth);
+	if (!wide) {
+		return margin;
+	}
+	const auto column = st::msgMaxWidth + 2 * st::msgPhotoSkip;
+	return std::max(margin, (width() - column) / 2);
+}
+
+int HistoryWidget::composeWidth() const {
+	return width() - 2 * composeLeft();
+}
+
+int HistoryWidget::composeSendSlot() const {
+	return _send->width() + st::glsComposeSendSkip;
+}
+
+void HistoryWidget::paintComposeGlass(
+		QPainter &p,
+		int top,
+		int height,
+		bool withSend) {
+	const auto margin = Gls::GlassMargin();
+	const auto left = composeLeft();
+	const auto pill = QRect(
+		left,
+		top + margin / 2,
+		composeWidth() - (withSend ? composeSendSlot() : 0),
+		height - margin);
+	const auto radius = Gls::BarRadius()
+		? std::min(pill.height() / 2, st::glsComposeRadius)
+		: 0;
+	Gls::PaintGlass(p, controller(), this, myrtlrect(pill), radius);
+	if (withSend && !_send->isHidden()) {
+		const auto size = std::min(_send->width(), _send->height())
+			- 2 * st::glsComposeSendInset;
+		const auto circle = QRect(
+			_send->x() + (_send->width() - size) / 2,
+			_send->y() + (_send->height() - size) / 2,
+			size,
+			size);
+		Gls::PaintGlass(p, controller(), this, circle, size / 2, 1);
+	}
 }
 
 void HistoryWidget::drawField(Painter &p, const QRect &rect) {
@@ -11539,7 +11585,14 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 	}
 	p.setInactive(
 		controller()->isGifPausedAtLeastFor(Window::GifPauseReason::Any));
-	paintComposeGlass(p, backy, backh);
+	paintComposeGlass(p, backy, backh, true);
+
+	// The previews are laid out inside the pill, as in a full-width area
+	const auto composeLeft = this->composeLeft();
+	const auto composeWidth = this->composeWidth() - composeSendSlot();
+	const auto width = [&] { return composeWidth; };
+	p.translate(composeLeft, 0);
+	const auto restore = gsl::finally([&] { p.translate(-composeLeft, 0); });
 
 	const auto media = (!_previewDrawPreview && drawMsgText)
 		? drawMsgText->media()
@@ -11670,7 +11723,11 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 			} else {
 				p.setPen(st::historyReplyNameFg);
 				if (_editMsgId) {
-					paintEditHeader(p, rect, replyLeft, backy);
+					paintEditHeader(
+						p,
+						rect.translated(-composeLeft, 0),
+						replyLeft,
+						backy);
 				} else {
 					_replyToName.drawElided(
 						p,
@@ -11834,7 +11891,7 @@ void HistoryWidget::paintEvent(QPaintEvent *e) {
 				drawField(p, clip);
 			}
 		} else if (const auto button = shownComposeButton()) {
-			paintComposeGlass(p, button->y(), button->height());
+			paintComposeGlass(p, button->y(), button->height(), false);
 		}
 	} else {
 		const auto w = 0

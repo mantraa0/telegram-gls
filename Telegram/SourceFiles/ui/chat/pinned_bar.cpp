@@ -39,7 +39,12 @@ PinnedBar::PinnedBar(
 
 	_wrap.entity()->paintRequest(
 	) | rpl::on_next([=](QRect clip) {
-		QPainter(_wrap.entity()).fillRect(clip, st::historyPinnedBg);
+		auto p = QPainter(_wrap.entity());
+		if (_backgroundPainter) {
+			_backgroundPainter(p, _wrap.entity(), clip);
+		} else {
+			p.fillRect(clip, st::historyPinnedBg);
+		}
 	}, lifetime());
 	_wrap.setAttribute(Qt::WA_OpaquePaintEvent);
 
@@ -144,13 +149,23 @@ void PinnedBar::setShadowGeometryPostprocess(Fn<QRect(QRect)> postprocess) {
 	updateShadowGeometry(_wrap.geometry());
 }
 
+void PinnedBar::setBackgroundPainter(
+		Fn<void(QPainter&, not_null<QWidget*>, QRect)> painter) {
+	_backgroundPainter = std::move(painter);
+	_wrap.setAttribute(Qt::WA_OpaquePaintEvent, !_backgroundPainter);
+	updateShadowGeometry(_wrap.geometry());
+	_wrap.entity()->update();
+}
+
 void PinnedBar::updateShadowGeometry(QRect wrapGeometry) {
 	const auto regular = QRect(
 		wrapGeometry.x(),
 		wrapGeometry.y() + wrapGeometry.height(),
 		wrapGeometry.width(),
 		st::lineWidth);
-	_shadow->setGeometry(_shadowGeometryPostprocess
+	_shadow->setGeometry(_backgroundPainter
+		? QRect()
+		: _shadowGeometryPostprocess
 		? _shadowGeometryPostprocess(regular)
 		: regular);
 }

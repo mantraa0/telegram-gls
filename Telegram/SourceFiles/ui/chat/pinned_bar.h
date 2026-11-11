@@ -36,6 +36,10 @@ public:
 
 	void setShadowGeometryPostprocess(Fn<QRect(QRect)> postprocess);
 
+	// Paints the background instead of the solid color, the bar becomes
+	// transparent and its shadow is hidden
+	void setBackgroundPainter(Fn<void(QPainter&, not_null<QWidget*>, QRect)> painter);
+
 	void setContent(rpl::producer<Ui::MessageBarContent> content);
 	void setRightButton(object_ptr<Ui::RpWidget> button);
 
@@ -71,6 +75,7 @@ private:
 	rpl::event_stream<> _barRightClicks;
 	rpl::event_stream<> _contextMenuRequested;
 	Fn<QRect(QRect)> _shadowGeometryPostprocess;
+	Fn<void(QPainter&, not_null<QWidget*>, QRect)> _backgroundPainter;
 	bool _shouldBeShown = false;
 	bool _forceHidden = false;
 

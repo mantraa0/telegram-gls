@@ -338,6 +338,7 @@ private:
 		MsgId showAtMsgId);
 
 	bool isOneColumn() const;
+	[[nodiscard]] QRect glsDialogsGeometry() const;
 	bool isNormalColumn() const;
 	bool isThreeColumn() const;
 
