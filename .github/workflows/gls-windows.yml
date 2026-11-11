@@ -244,6 +244,14 @@ jobs:
           mklink /j %TBUILD%\tdesktop\out D:\gls-out
           powershell -NoProfile -Command "Get-PSDrive C,D | Format-Table Name, Used, Free"
 
+      # Parallel compiler processes with precompiled headers exhaust the default commit limit
+      - name: Configure pagefile
+        uses: al-cheb/configure-pagefile-action@v1.5
+        with:
+          minimum-size: 24GB
+          maximum-size: 32GB
+          disk-root: 'D:'
+
       - name: Configure and build
         env:
           # The app's credentials from my.telegram.org. Repository secrets with the same names override them
@@ -258,6 +266,10 @@ jobs:
           -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
           cmake --build ..\out --config Release --parallel
+          if errorlevel 1 (
+            echo Build failed, retrying incrementally with fewer compiler processes
+            cmake --build ..\out --config Release -- /p:CL_MPCount=2
+          )
 
       - uses: actions/download-artifact@v4
         with:
