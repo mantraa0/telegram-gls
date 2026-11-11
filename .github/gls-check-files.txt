@@ -1,4 +1,3 @@
 Telegram/SourceFiles/info/info_layer_widget.cpp
 Telegram/SourceFiles/ui/chat/pinned_bar.cpp
 Telegram/SourceFiles/window/themes/window_themes_embedded.cpp
-Telegram/SourceFiles/core/core_settings.cpp

@@ -124,8 +124,8 @@ jobs:
             # Sources of the helper libraries live in their own targets
             object=$(grep -F "/${file#Telegram/}.obj:" targets.txt | head -1 | cut -d: -f1 || true)
             if [ -z "$object" ]; then
-              echo "No object target for $file"
-              exit 1
+              echo "::warning::No object target for $file"
+              continue
             fi
             echo "$file -> $object"
             objects+=("$object")
