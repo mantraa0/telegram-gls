@@ -118,7 +118,7 @@ jobs:
         run: |
           cd "$TBUILD/tdesktop"
           ninja -C out -t targets all > targets.txt
-          files=$(git grep -l -E '#include "(gls/|core/gls_)' -- 'Telegram/SourceFiles/*.cpp')
+          files=$( (git grep -l -E '#include "(gls/|core/gls_)' -- 'Telegram/SourceFiles/*.cpp'; cat .github/gls-check-files.txt) | sort -u)
           objects=()
           for file in $files; do
             object=$(grep -F "Telegram.dir/${file#Telegram/}.obj:" targets.txt | head -1 | cut -d: -f1)
