@@ -1305,7 +1305,11 @@ void ProxyButton::showMenu() {
 			.arg(RouteText(route->route))
 			.arg(Milliseconds(route->milliseconds))
 		: Tr("Встроенный прокси подключён", "The built-in proxy is connected");
-	_menu->addAction(status, nullptr, &st::menuIconNetwork)->setEnabled(false);
+	const auto header = _menu->addAction(
+		status,
+		Fn<void()>(),
+		&st::menuIconNetwork);
+	header->setEnabled(false);
 	_menu->addSeparator();
 	_menu->addAction(
 		(builtIn

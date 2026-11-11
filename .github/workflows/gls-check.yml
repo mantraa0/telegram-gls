@@ -118,7 +118,7 @@ jobs:
         run: |
           cd "$TBUILD/tdesktop"
           ninja -C out -t targets all > targets.txt
-          files=$( (git grep -l -E '#include "(gls/|core/gls_)' -- 'Telegram/SourceFiles/*.cpp'; cat .github/gls-check-files.txt) | sort -u)
+          files=$( (git grep -l -E '#include "(gls/|core/gls_)' -- 'Telegram/SourceFiles/*.cpp'; tr -d '\r' < .github/gls-check-files.txt) | sort -u)
           objects=()
           for file in $files; do
             # Sources of the helper libraries live in their own targets
