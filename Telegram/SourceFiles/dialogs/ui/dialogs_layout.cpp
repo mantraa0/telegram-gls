@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "dialogs/dialogs_three_state_icon.h"
 #include "dialogs/dialogs_quick_action.h"
 #include "dialogs/ui/dialogs_video_userpic.h"
+#include "gls/gls_glass.h"
 #include "history/history.h"
 #include "history/history_item.h"
 #include "history/history_item_components.h"
@@ -56,6 +57,13 @@ namespace Dialogs::Ui {
 const char kOptionDialogsMuteIcon[] = "dialogs-mute-icon";
 
 namespace {
+
+// The chat list over a glass panel has a transparent background and
+// rounded row highlights
+[[nodiscard]] bool IsGlassBackground(const PaintContext &context) {
+	return (context.currentBg->style() == Qt::SolidPattern)
+		&& !context.currentBg->color().alpha();
+}
 
 base::options::toggle DialogsMuteIcon({
 	.id = kOptionDialogsMuteIcon,
@@ -465,11 +473,6 @@ void PaintRow(
 	const auto thread = entry->asThread();
 	const auto sublist = entry->asSublist();
 
-	auto bg = context.active
-		? st::dialogsBgActive
-		: context.selected
-		? st::dialogsBgOver
-		: context.currentBg;
 	auto swipeTranslation = 0.;
 	auto swipeMirrored = false;
 	if (history
@@ -484,7 +487,19 @@ void PaintRow(
 	if (swipeTranslation) {
 		p.translate(swipeMirrored ? swipeTranslation : -swipeTranslation, 0);
 	}
-	p.fillRect(geometry, bg);
+	if (IsGlassBackground(context)) {
+		Gls::PaintRowBackground(
+			p,
+			geometry,
+			context.active,
+			context.selected);
+	} else {
+		p.fillRect(geometry, context.active
+			? st::dialogsBgActive
+			: context.selected
+			? st::dialogsBgOver
+			: context.currentBg);
+	}
 	if (!(flags & Flag::TopicJumpRipple)) {
 		auto ripple = context.active
 			? st::dialogsRippleBgActive
@@ -1412,9 +1427,19 @@ void PaintCollapsedRow(
 		const QString &text,
 		int unread,
 		const PaintContext &context) {
-	p.fillRect(
-		QRect{ 0, 0, context.width, st::dialogsImportantBarHeight },
-		context.selected ? st::dialogsBgOver : context.currentBg);
+	const auto bar = QRect{
+		0,
+		0,
+		context.width,
+		st::dialogsImportantBarHeight,
+	};
+	if (IsGlassBackground(context)) {
+		Gls::PaintRowBackground(p, bar, false, context.selected);
+	} else {
+		p.fillRect(
+			bar,
+			context.selected ? st::dialogsBgOver : context.currentBg);
+	}
 
 	row.paintRipple(p, 0, 0, context.width);
 

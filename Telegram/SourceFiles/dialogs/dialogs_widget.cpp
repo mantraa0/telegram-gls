@@ -20,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "dialogs/dialogs_top_bar_suggestion.h"
 #include "dialogs/dialogs_quick_action.h"
 #include "dialogs/dialogs_key.h"
+#include "gls/gls_glass.h"
 #include "history/history.h"
 #include "history/history_item.h"
 #include "history/view/history_view_chat_section.h"
@@ -776,17 +777,7 @@ Widget::Widget(
 	setupScrollUpButton();
 	setupTouchChatPreview();
 
-	const auto overscrollBg = [=] {
-		return anim::color(
-			st::dialogsBg,
-			st::dialogsBgOver,
-			_childListShown.current());
-	};
-	_scroll->setOverscrollBg(overscrollBg());
-	style::PaletteChanged(
-	) | rpl::on_next([=] {
-		_scroll->setOverscrollBg(overscrollBg());
-	}, lifetime());
+	_scroll->setOverscrollBg(QColor(0, 0, 0, 0));
 
 	if (_layout != Layout::Child) {
 		setupConnectingWidget();
@@ -2649,10 +2640,7 @@ QPixmap Widget::grabForChatsFilterSlide() {
 	if (!hidden) {
 		_scrollToTop->hide();
 	}
-	auto result = Ui::GrabOpaque(
-		_scroll.data(),
-		_scroll->rect(),
-		st::dialogsBg->c);
+	auto result = Ui::GrabWidget(_scroll.data(), _scroll->rect());
 	if (!hidden) {
 		_scrollToTop->show();
 	}
@@ -2667,13 +2655,11 @@ void Widget::startChatsFilterSlide(
 	_chatsFilterSlideCanvas = std::make_unique<Ui::RpWidget>(this);
 	const auto canvas = _chatsFilterSlideCanvas.get();
 	canvas->setAttribute(Qt::WA_TransparentForMouseEvents);
-	canvas->setAttribute(Qt::WA_OpaquePaintEvent);
 	canvas->setGeometry(_scroll->geometry());
 	const auto animation
 		= canvas->lifetime().make_state<Ui::SlideAnimation>();
 	animation->setSnapshots(std::move(wasCache), std::move(nowCache));
 	canvas->paintOn([=](QPainter &p) {
-		p.fillRect(canvas->rect(), st::dialogsBg);
 		animation->paintFrame(p, 0, 0, canvas->width());
 	});
 	canvas->show();
@@ -5014,16 +5000,7 @@ void Widget::paintEvent(QPaintEvent *e) {
 		_showAnimation->paintContents(p);
 		return;
 	}
-	const auto bg = anim::brush(
-		st::dialogsBg,
-		st::dialogsBgOver,
-		_childListShown.current());
-	auto above = QRect(0, 0, width(), _scroll->y());
-	if (above.intersects(r)) {
-		p.fillRect(above.intersected(r), bg);
-	}
-
-	auto belowTop = _scroll->y() + _scroll->height();
+	Gls::PaintGlass(p, controller(), this, rect(), Gls::PanelRadius(this));
 	if (!_widthAnimationCache.isNull()) {
 		const auto suggestionsShown = _suggestions
 			? _suggestions->shownOpacity()
@@ -5035,18 +5012,7 @@ void Widget::paintEvent(QPaintEvent *e) {
 		const auto top = _searchControls->y()
 			+ _searchControls->height()
 			+ suggestionsSkip;
-		const auto aboveBottom = above.y() + above.height();
-		if (top > aboveBottom) {
-			p.fillRect(0, aboveBottom, width(), top - aboveBottom, bg);
-		}
 		p.drawPixmapLeft(0, top, width(), _widthAnimationCache);
-		belowTop = top
-			+ (_widthAnimationCache.height() / style::DevicePixelRatio());
-	}
-
-	auto below = QRect(0, belowTop, width(), height() - belowTop);
-	if (below.intersects(r)) {
-		p.fillRect(below.intersected(r), bg);
 	}
 }
 

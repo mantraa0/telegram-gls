@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "dialogs/dialogs_indexed_list.h"
 #include "dialogs/dialogs_row.h"
 #include "dialogs/dialogs_community_requestable_list.h"
+#include "gls/gls_glass.h"
 #include "dialogs/dialogs_widget.h"
 #include "dialogs/dialogs_search_from_controllers.h"
 #include "dialogs/dialogs_search_tags.h"
@@ -320,7 +321,7 @@ InnerWidget::InnerWidget(
 	+ st::defaultDialogRow.padding.left())
 , _childListShown(std::move(childListShown))
 , _freezeTimer([=] { _shownList->unfreeze(); update(); }) {
-	setAttribute(Qt::WA_OpaquePaintEvent, true);
+	// Rows are painted over the glass panel of the chats list
 	setAccessibleName(tr::lng_recent_chats(tr::now));
 
 	_communityViewable.setRepaint([=] { update(); });
@@ -1252,9 +1253,16 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 						? history->peer->userpicUniqueKey(
 							row->userpicView())
 						: std::pair<uint64, uint64>();
+					// Animated overlays are painted over cleared areas
+					q.setCompositionMode(QPainter::CompositionMode_Clear);
 					if (!cached.badge.isEmpty()) {
-						q.fillRect(cached.badge, st::dialogsBg);
+						q.fillRect(cached.badge, Qt::transparent);
 					}
+					if (!cached.preview.isEmpty()) {
+						q.fillRect(cached.preview, Qt::transparent);
+					}
+					q.setCompositionMode(
+						QPainter::CompositionMode_SourceOver);
 					_cachedRows[cacheKey] = std::move(cached);
 				});
 			paintCachedRowOverlays(p, row, cacheKey, context);
@@ -1913,13 +1921,11 @@ void InnerWidget::paintPeerSearchResult(
 		not_null<const PeerSearchResult*> result,
 		const Ui::PaintContext &context) {
 	QRect fullRect(0, 0, context.width, st::dialogsRowHeight);
-	p.fillRect(
+	Gls::PaintRowBackground(
+		p,
 		fullRect,
-		(context.active
-			? st::dialogsBgActive
-			: context.selected
-			? st::dialogsBgOver
-			: currentBg()));
+		context.active,
+		context.selected);
 	if (!context.active) {
 		result->row.paintRipple(p, 0, 0, context.width);
 	}
@@ -2029,10 +2035,7 @@ void InnerWidget::paintPeerSearchResult(
 }
 
 QBrush InnerWidget::currentBg() const {
-	return anim::brush(
-		st::dialogsBg,
-		st::dialogsBgOver,
-		_childListShown.current().shown);
+	return QBrush(Qt::transparent);
 }
 
 void InnerWidget::paintSearchTags(
@@ -3794,13 +3797,13 @@ void InnerWidget::paintAnimatedPreview(
 		return;
 	}
 	if (cached.band.size() != size) {
-		cached.band = QImage(size, QImage::Format_RGB32);
+		cached.band = QImage(size, QImage::Format_ARGB32_Premultiplied);
 		cached.band.setDevicePixelRatio(ratio);
 		cached.bandDirty = true;
 	}
 	if (cached.bandDirty) {
 		cached.bandDirty = false;
-		cached.band.fill(st::dialogsBg->c);
+		cached.band.fill(Qt::transparent);
 		auto q = Painter(&cached.band);
 		q.setInactive(p.inactive());
 		q.translate(-geometry.topLeft());

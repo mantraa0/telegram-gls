@@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_peer_values.h"
 #include "data/data_premium_limits.h"
 #include "data/data_unread_value.h"
+#include "gls/gls_glass.h"
 #include "lang/lang_keys.h"
 #include "ui/filter_icons.h"
 #include "ui/wrap/vertical_layout.h"
@@ -125,6 +126,7 @@ void FiltersMenu::setup() {
 
 	_outer.setAttribute(Qt::WA_OpaquePaintEvent);
 	_outer.show();
+	_menu.setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	// Keep the sidebar's Tab chain in visual order: the main menu button
 	// above the scroll area, and inside it the folders list (entered at
@@ -135,9 +137,11 @@ void FiltersMenu::setup() {
 	_outer.paintRequest(
 	) | rpl::on_next([=](QRect clip) {
 		auto p = QPainter(&_outer);
-		p.setPen(Qt::NoPen);
-		p.setBrush(st::windowFiltersButton.textBg);
-		p.drawRect(clip);
+		Gls::PaintGlass(p, _session, &_outer, _outer.rect(), 0);
+	}, _outer.lifetime());
+	Gls::BackdropChanges(
+	) | rpl::on_next([=] {
+		_outer.update();
 	}, _outer.lifetime());
 
 	_parent->heightValue(
@@ -577,6 +581,7 @@ base::unique_qptr<Ui::SideBarButton> FiltersMenu::prepareButton(
 		: container->add(std::move(prepared));
 	auto button = base::unique_qptr<Ui::SideBarButton>(std::move(added));
 	const auto raw = button.get();
+	raw->setAttribute(Qt::WA_OpaquePaintEvent, false);
 	const auto nameText = id
 		? title.text.text
 		: tr::lng_filters_all(tr::now);

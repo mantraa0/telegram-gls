@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_file_origin.h"
 #include "data/data_histories.h"
 #include "data/stickers/data_stickers.h"
+#include "gls/gls_glass.h"
 #include "ui/chat/chat_theme.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/shadow.h"
@@ -295,6 +296,11 @@ MainWidget::MainWidget(
 	_history->cancelRequests(
 	) | rpl::on_next([=] {
 		handleHistoryBack();
+	}, lifetime());
+
+	Gls::BackdropChanges(
+	) | rpl::on_next([=] {
+		update();
 	}, lifetime());
 
 	Core::App().calls().currentCallValue(
@@ -2567,10 +2573,29 @@ void MainWidget::paintEvent(QPaintEvent *e) {
 	if (_background) {
 		checkChatBackground();
 	}
+	auto p = QPainter(this);
 	if (_showAnimation) {
-		auto p = QPainter(this);
 		_showAnimation->paintContents(p);
+		return;
 	}
+
+	// The chat sections and the info column paint their own backgrounds,
+	// here only the gaps around the glass panels are left
+	auto region = e->region();
+	const auto subtract = [&](QWidget *widget) {
+		if (widget && !widget->isHidden()) {
+			region -= widget->geometry();
+		}
+	};
+	subtract(_mainSection
+		? static_cast<QWidget*>(_mainSection.data())
+		: _history.get());
+	subtract(_thirdSection.data());
+	if (region.isEmpty()) {
+		return;
+	}
+	p.setClipRegion(region);
+	Gls::PaintWallpaper(p, _controller, this, region.boundingRect());
 }
 
 int MainWidget::getMainSectionTop() const {
@@ -2760,6 +2785,7 @@ void MainWidget::updateControlsGeometry() {
 			dialogsWidth,
 			height() - mainSectionTop);
 		if (_dialogs) {
+			Gls::SetFloatingPanel(_controller, _dialogs.get(), false);
 			_dialogs->setGeometryWithTopMoved(
 				mainSectionGeometry,
 				_contentScrollAddToY);
@@ -2769,14 +2795,19 @@ void MainWidget::updateControlsGeometry() {
 			_contentScrollAddToY);
 		if (_hider) _hider->setGeometry(0, 0, dialogsWidth, height());
 	} else {
+		// Side columns float as glass panels, the gaps show the wallpaper.
+		// Vertical insets match the chat header and composer bars.
+		const auto glassMargin = Gls::GlassMargin();
+		const auto glassTop = glassMargin / 2;
 		auto thirdSectionWidth = _thirdSection ? _thirdColumnWidth : 0;
 		if (_thirdSection) {
-			auto thirdSectionTop = getThirdSectionTop();
+			auto thirdSectionTop = getThirdSectionTop() + glassTop;
+			Gls::SetFloatingPanel(_controller, _thirdSection.data(), true);
 			_thirdSection->setGeometry(
 				width() - thirdSectionWidth,
 				thirdSectionTop,
-				thirdSectionWidth,
-				height() - thirdSectionTop);
+				thirdSectionWidth - glassMargin,
+				height() - thirdSectionTop - glassTop);
 		}
 		const auto shadowTop = _controller->window().verticalShadowTop();
 		const auto shadowHeight = height() - shadowTop;
@@ -2784,20 +2815,25 @@ void MainWidget::updateControlsGeometry() {
 			accumulate_min(
 				dialogsWidth,
 				width() - st::columnMinimalWidthMain);
-			_dialogs->setGeometryToLeft(0, 0, dialogsWidth, height());
+			Gls::SetFloatingPanel(_controller, _dialogs.get(), true);
+			_dialogs->setGeometryToLeft(
+				glassMargin,
+				glassTop,
+				dialogsWidth - glassMargin,
+				height() - 2 * glassTop);
 		}
 		if (_sideShadow) {
 			_sideShadow->setGeometryToLeft(
 				dialogsWidth,
 				shadowTop,
-				st::lineWidth,
+				0,
 				shadowHeight);
 		}
 		if (_thirdShadow) {
 			_thirdShadow->setGeometryToLeft(
-				width() - thirdSectionWidth - st::lineWidth,
+				width() - thirdSectionWidth,
 				shadowTop,
-				st::lineWidth,
+				0,
 				shadowHeight);
 		}
 		const auto mainSectionWidth = width()

@@ -41,8 +41,12 @@ public:
 			p.drawImage(0, 0, i->second);
 			return;
 		}
-		auto image = QImage(physicalSize, QImage::Format_RGB32);
+		// Rows may have a transparent background over a glass panel
+		auto image = QImage(
+			physicalSize,
+			QImage::Format_ARGB32_Premultiplied);
 		image.setDevicePixelRatio(ratio);
+		image.fill(Qt::transparent);
 		paintToImage(image);
 		p.drawImage(0, 0, image);
 		auto &slot = _images[rowId];

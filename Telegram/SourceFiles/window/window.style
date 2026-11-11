@@ -228,6 +228,8 @@ createThemeLink: InputField(defaultInputField) {
 
 windowFiltersWidth: 72px;
 windowFiltersButton: SideBarButton(defaultSideBarButton) {
+	textBg: transparent;
+	textBgActive: transparent;
 	textTop: 40px;
 	textSkip: 6px;
 	minHeight: 62px;

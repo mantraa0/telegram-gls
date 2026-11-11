@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_cloud_themes.h"
 #include "data/data_message_reactions.h"
 #include "data/data_peer_values.h"
+#include "gls/gls_glass.h"
 #include "history/history.h"
 #include "history/history_item.h"
 #include "lang/lang_keys.h"
@@ -343,9 +344,17 @@ void SectionWidget::PaintBackground(
 		not_null<Ui::ChatTheme*> theme,
 		not_null<QWidget*> widget,
 		QRect clip) {
+	// Inside the window body the wallpaper spans the whole body, so the
+	// sections line up with the glass panels around them
+	const auto origin = Gls::WallpaperOrigin(controller, widget);
+	const auto fillHeight = controller->content()->height();
+	const auto fill = origin
+		? Gls::WallpaperSize(controller)
+		: QSize(widget->width(), fillHeight);
+	if (fill.isEmpty()) {
+		return;
+	}
 	if (const auto id = theme->background().giftId) {
-		const auto fillHeight = controller->content()->height();
-		const auto fill = QSize(widget->width(), fillHeight);
 		const auto &state = theme->backgroundState(fill);
 		const auto make = [&] {
 			return MakeWrappedEmoji<Ui::Text::LimitedLoopsEmoji>(
@@ -363,13 +372,24 @@ void SectionWidget::PaintBackground(
 		}
 	}
 
-	PaintBackground(
-		theme,
-		widget,
-		controller->content()->height(),
-		controller->content()->backgroundFromY(),
-		clip,
-		controller->isGifPausedAtLeastFor(GifPauseReason::Any));
+	const auto paused = controller->isGifPausedAtLeastFor(
+		GifPauseReason::Any);
+	if (!origin) {
+		PaintBackground(
+			theme,
+			widget,
+			fillHeight,
+			controller->content()->backgroundFromY(),
+			clip,
+			paused);
+		return;
+	}
+	auto p = QPainter(widget);
+	p.translate(-*origin);
+	PaintBackground(p, theme, fill, clip.translated(*origin), paused);
+	if (theme == controller->currentChatTheme()) {
+		Gls::TrackBackdrop(theme, fill);
+	}
 }
 
 void SectionWidget::PaintBackground(

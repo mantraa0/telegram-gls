@@ -538,15 +538,16 @@ void TopBarWidget::paintEvent(QPaintEvent *e) {
 		: -st::topBarHeight;
 	const auto slidingTop = std::max(selectedButtonsTop, searchFieldTop);
 
+	// A floating glass bar over the chat wallpaper
 	const auto barRect = QRect(0, 0, width(), st::topBarHeight);
-	if (_activeChat.key) {
-		Gls::PaintChatBackdrop(p, _controller, this, barRect);
-		auto tint = st::topBarBg->c;
-		tint.setAlphaF(tint.alphaF() * Gls::kBarTintAlpha);
-		p.fillRect(barRect, tint);
-	} else {
-		p.fillRect(barRect, st::topBarBg);
-	}
+	const auto margin = Gls::GlassMargin();
+	Gls::PaintWallpaper(p, _controller, this, barRect);
+	Gls::PaintGlass(
+		p,
+		_controller,
+		this,
+		barRect.marginsRemoved({ margin, margin / 2, margin, margin / 2 }),
+		Gls::BarRadius());
 	if (slidingTop < 0) {
 		p.translate(0, slidingTop + st::topBarHeight);
 		paintTopBar(p);

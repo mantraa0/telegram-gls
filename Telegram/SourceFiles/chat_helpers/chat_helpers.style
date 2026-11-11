@@ -1079,6 +1079,14 @@ historyUnblock: FlatButton(historyComposeButton) {
 	color: attentionButtonFg;
 	overColor: attentionButtonFgOver;
 }
+historyGlassComposeButton: FlatButton(historyComposeButton) {
+	bgColor: transparent;
+	overBgColor: transparent;
+}
+historyGlassUnblock: FlatButton(historyUnblock) {
+	bgColor: transparent;
+	overBgColor: transparent;
+}
 historyContactStatusButton: FlatButton(historyComposeButton) {
 	height: 49px;
 	textTop: 16px;

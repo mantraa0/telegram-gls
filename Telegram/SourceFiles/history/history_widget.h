@@ -659,6 +659,8 @@ private:
 	void sendInlineResult(InlineBots::ResultSelected result);
 
 	void drawField(Painter &p, const QRect &rect);
+	[[nodiscard]] Ui::RpWidget *shownComposeButton() const;
+	void paintComposeGlass(QPainter &p, int top, int height);
 	void paintEditHeader(
 		Painter &p,
 		const QRect &rect,

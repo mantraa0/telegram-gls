@@ -311,20 +311,20 @@ HistoryWidget::HistoryWidget(
 , _unblock(
 	this,
 	tr::lng_unblock_button(tr::now).toUpper(),
-	st::historyUnblock)
+	st::historyGlassUnblock)
 , _botStart(
 	this,
 	tr::lng_bot_start(tr::now).toUpper(),
-	st::historyComposeButton)
+	st::historyGlassComposeButton)
 , _joinChannel(
 	this,
 	tr::lng_profile_join_channel(tr::now).toUpper(),
-	st::historyComposeButton)
+	st::historyGlassComposeButton)
 , _muteUnmute(
 	this,
 	tr::lng_channel_mute(tr::now).toUpper(),
-	st::historyComposeButton)
-, _reportMessages(this, QString(), st::historyComposeButton)
+	st::historyGlassComposeButton)
+, _reportMessages(this, QString(), st::historyGlassComposeButton)
 , _attachToggle(this, st::historyAttach)
 , _tabbedSelectorToggle(this, st::historyAttachEmoji)
 , _botKeyboardShow(this, st::historyBotKeyboardShow)
@@ -7675,7 +7675,7 @@ void HistoryWidget::moveFieldControls() {
 // (_botStart|_unblock|_joinChannel|_muteUnmute|_reportMessages)
 
 	auto buttonsBottom = bottom - _attachToggle->height();
-	auto left = st::historySendRight;
+	auto left = Gls::ComposeSkip();
 	if (_botMenu) {
 		const auto skip = st::historyBotMenuSkip;
 		_botMenu->moveToLeft(left + skip, buttonsBottom + skip);
@@ -7698,7 +7698,7 @@ void HistoryWidget::moveFieldControls() {
 			left,
 			bottom - fieldHeight() - st::historySendPadding);
 	}
-	auto right = st::historySendRight;
+	auto right = Gls::ComposeSkip();
 	_send->moveToRight(right, buttonsBottom); right += _send->width();
 	_voiceRecordBar->moveToLeft(0, bottom - _voiceRecordBar->height());
 	_tabbedSelectorToggle->moveToRight(right, buttonsBottom);
@@ -7767,7 +7767,7 @@ void HistoryWidget::updateFieldSize() {
 	const auto kbShowShown = _history && !_kbShown && _keyboard->hasMarkup();
 	auto fieldWidth = width()
 		- _attachToggle->width()
-		- st::historySendRight
+		- 2 * Gls::ComposeSkip()
 		- _send->width()
 		- _tabbedSelectorToggle->width();
 	if (_botMenu) {
@@ -11487,6 +11487,35 @@ void HistoryWidget::updateField() {
 	rtlupdate(0, fieldAreaTop, width(), height() - fieldAreaTop);
 }
 
+Ui::RpWidget *HistoryWidget::shownComposeButton() const {
+	for (const auto button : {
+			static_cast<Ui::RpWidget*>(_botStart.data()),
+			static_cast<Ui::RpWidget*>(_unblock.data()),
+			static_cast<Ui::RpWidget*>(_joinChannel.data()),
+			static_cast<Ui::RpWidget*>(_muteUnmute.data()),
+			static_cast<Ui::RpWidget*>(_reportMessages.data()),
+			_sendRestriction.get() }) {
+		if (button && !button->isHidden()) {
+			return button;
+		}
+	}
+	return nullptr;
+}
+
+void HistoryWidget::paintComposeGlass(QPainter &p, int top, int height) {
+	const auto margin = Gls::GlassMargin();
+	Gls::PaintGlass(
+		p,
+		controller(),
+		this,
+		myrtlrect(
+			margin,
+			top + margin / 2,
+			width() - 2 * margin,
+			height - margin),
+		Gls::BarRadius());
+}
+
 void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 	_repaintFieldScheduled = false;
 
@@ -11505,15 +11534,7 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 	}
 	p.setInactive(
 		controller()->isGifPausedAtLeastFor(Window::GifPauseReason::Any));
-	const auto glassMargin = Gls::GlassMargin();
-	Gls::PaintGlassPanel(
-		p,
-		myrtlrect(
-			glassMargin,
-			backy + glassMargin / 2,
-			width() - 2 * glassMargin,
-			backh - glassMargin),
-		Gls::GlassRadius());
+	paintComposeGlass(p, backy, backh);
 
 	const auto media = (!_previewDrawPreview && drawMsgText)
 		? drawMsgText->media()
@@ -11807,6 +11828,8 @@ void HistoryWidget::paintEvent(QPaintEvent *e) {
 			if (!isSearching()) {
 				drawField(p, clip);
 			}
+		} else if (const auto button = shownComposeButton()) {
+			paintComposeGlass(p, button->y(), button->height());
 		}
 	} else {
 		const auto w = 0

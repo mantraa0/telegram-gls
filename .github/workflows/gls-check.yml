@@ -1,0 +1,104 @@
+name: Telegram GLS compile check
+
+# Compiles only the sources with GLS changes against the cached libraries,
+# a quick check before the full build on dev
+on:
+  push:
+    branches: [gls-check]
+  workflow_dispatch:
+
+concurrency:
+  group: gls-check-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PREPARE_PATH: Telegram/build/prepare/prepare.py
+
+jobs:
+  check:
+    name: Compile changed sources
+    runs-on: windows-latest
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Prepare directories
+        run: |
+          mkdir D:\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild D:\TBuild
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
+
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          path: ${{ env.TBUILD }}\tdesktop
+
+      - name: Cache key
+        shell: bash
+        run: |
+          DOCPATH=$TBUILD/tdesktop/docs/building-win.md
+          SDK="$(grep "SDK version" $DOCPATH | sed -r 's/.*\*\*(.*)\*\* SDK version.*/\1/')"
+          echo "SDK=$SDK" >> $GITHUB_ENV
+          sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
+          { sha256sum $TBUILD/tdesktop/$PREPARE_PATH | awk '{ print $1 }'; echo "$SDK"; } > CACHE_KEY.txt
+          echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI"
+
+      - uses: Eden-CI/msvc-dev-cmd@master
+        with:
+          arch: x64
+          sdk: ${{ env.SDK }}
+          toolset: '14.44'
+
+      - name: NuGet sources
+        run: |
+          nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
+          nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
+
+      - name: Restore libraries
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.LibrariesPath }}
+          key: gls-libs-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            gls-libs-${{ env.CACHE_KEY }}-
+          fail-on-cache-miss: true
+
+      - name: Check libraries
+        run: |
+          %TBUILD%\tdesktop\Telegram\build\prepare\win.bat silent
+
+      - name: Configure
+        run: |
+          where ninja || pip install ninja
+          cd %TBUILD%\tdesktop\Telegram
+          call configure.bat -G Ninja ^
+          -D TDESKTOP_API_ID=36862800 ^
+          -D TDESKTOP_API_HASH=efbb9833537366b6c5270c856e31cebc ^
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
+          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+
+      # Generated headers and the precompiled header are built on demand
+      - name: Compile changed sources
+        shell: bash
+        run: |
+          cd "$TBUILD/tdesktop"
+          ninja -C out -t targets all > targets.txt
+          files=$(git grep -l -E '#include "(gls/|core/gls_)' -- 'Telegram/SourceFiles/*.cpp')
+          objects=()
+          for file in $files; do
+            object=$(grep -F "Telegram.dir/${file#Telegram/}.obj:" targets.txt | head -1 | cut -d: -f1)
+            if [ -z "$object" ]; then
+              echo "No object target for $file"
+              exit 1
+            fi
+            echo "$file -> $object"
+            objects+=("$object")
+          done
+          ninja -C out -k 0 "${objects[@]}"
