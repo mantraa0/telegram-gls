@@ -327,7 +327,7 @@ void Application::run() {
 	ValidateScale();
 
 	_private->glsWsProxy = std::make_unique<GlsWsProxy>();
-	_private->glsWsProxy->start(_private->settings.proxy());
+	_private->glsWsProxy->start(&_private->settings.proxy());
 	refreshGlobalProxy(); // Depends on app settings being read.
 
 	if (const auto old = Local::oldSettingsVersion(); old < AppVersion) {

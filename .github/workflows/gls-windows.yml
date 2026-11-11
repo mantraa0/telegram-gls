@@ -17,8 +17,6 @@ concurrency:
 
 env:
   PREPARE_PATH: Telegram/build/prepare/prepare.py
-  TG_WS_PROXY_REPO: valnesfjord/tg-ws-proxy-rs
-  TG_WS_PROXY_REF: 53f392280a370199ffe5c6ef0ac88808ed17c575
 
 jobs:
   libraries:
@@ -130,23 +128,29 @@ jobs:
           key: gls-libs-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   proxy:
-    name: tg-ws-proxy
+    name: Proxy library
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: Telegram/build/gls_proxy
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: ${{ env.TG_WS_PROXY_REPO }}
-          ref: ${{ env.TG_WS_PROXY_REF }}
+          sparse-checkout: Telegram/build/gls_proxy
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: Telegram/build/gls_proxy -> target
 
+      # The working directory matters: it picks up .cargo/config.toml, which
+      # links the C runtime statically
       - name: Build
-        run: cargo build --release --bin tg-ws-proxy
+        run: cargo build --release
 
       - uses: actions/upload-artifact@v4
         with:
-          name: tg-ws-proxy
-          path: target/release/tg-ws-proxy.exe
+          name: gls-proxy
+          path: Telegram/build/gls_proxy/target/release/gls_proxy.dll
           if-no-files-found: error
 
   app:
@@ -273,7 +277,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: tg-ws-proxy
+          name: gls-proxy
           path: ${{ env.TBUILD }}\tdesktop\out\Release
 
       - name: Installer
@@ -287,7 +291,7 @@ jobs:
           move "%OUT%\TelegramGLS-setup-x64.*.exe" artifact\ || exit /b 1
           mkdir artifact\portable
           copy "%OUT%\Telegram.exe" artifact\portable\
-          copy "%OUT%\tg-ws-proxy.exe" artifact\portable\
+          copy "%OUT%\gls_proxy.dll" artifact\portable\
           if exist "%OUT%\modules" xcopy /e /i "%OUT%\modules" artifact\portable\modules
 
       - uses: actions/upload-artifact@v4

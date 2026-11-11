@@ -19,6 +19,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/update_checker.h"
 #include "boxes/connection_box.h"
 #include "boxes/abstract_box.h"
+#include "gls/gls_proxy_section.h"
+#include "window/window_controller.h"
+#include "window/window_session_controller.h"
 #include "lang/lang_keys.h"
 #include "styles/style_window.h"
 
@@ -507,7 +510,13 @@ ConnectionState::Widget::Widget(
 	_progress = Ui::CreateChild<Progress>(this);
 
 	addClickHandler([=] {
-		Ui::show(ProxiesBoxController::CreateOwningBox(account));
+		const auto window = Core::App().activeWindow();
+		const auto session = window ? window->sessionController() : nullptr;
+		if (session) {
+			session->showSettings(Gls::ProxySectionId());
+		} else {
+			Ui::show(ProxiesBoxController::CreateOwningBox(account));
+		}
 	});
 
 	_progress->animationStepRequests(

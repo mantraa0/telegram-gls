@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/sections/settings_advanced.h"
 
+#include "gls/gls_proxy_section.h"
+
 #include "settings/settings_common_session.h"
 
 #include "api/api_global_privacy.h"
@@ -131,8 +133,7 @@ void BuildDataStorageSection(SectionBuilder &builder) {
 			tr::lng_connection_auto_connecting() | rpl::to_empty
 		) | rpl::map(connectionType),
 		.onClick = [=] {
-			controller->window().show(
-				ProxiesBoxController::CreateOwningBox(account));
+			controller->showSettings(Gls::ProxySectionId());
 		},
 		.keywords = { u"connection"_q, u"proxy"_q, u"network"_q, u"vpn"_q },
 	});
@@ -1430,7 +1431,11 @@ void SetupConnectionType(
 		st::settingsButton,
 		{ &st::menuIconNetwork });
 	button->addClickHandler([=] {
-		controller->show(ProxiesBoxController::CreateOwningBox(account));
+		if (const auto session = controller->sessionController()) {
+			session->showSettings(Gls::ProxySectionId());
+		} else {
+			controller->show(ProxiesBoxController::CreateOwningBox(account));
+		}
 	});
 }
 

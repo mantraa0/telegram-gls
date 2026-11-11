@@ -1,0 +1,23 @@
+[package]
+name = "gls-proxy"
+version = "1.0.0"
+edition = "2021"
+description = "Runs the tg-ws-proxy-rs core inside Telegram GLS"
+license = "MIT"
+publish = false
+
+[lib]
+name = "gls_proxy"
+crate-type = ["cdylib"]
+
+[dependencies]
+tg-ws-proxy-rs = { git = "https://github.com/valnesfjord/tg-ws-proxy-rs", rev = "53f392280a370199ffe5c6ef0ac88808ed17c575" }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "net", "time"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "registry"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "unwind"
+strip = true

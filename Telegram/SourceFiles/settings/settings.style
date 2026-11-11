@@ -770,3 +770,46 @@ detailedSettingsButtonStyle: DetailedSettingsButtonStyle {
 }
 
 settingsToastStarIcon: icon {{ "toast/star", toastFg }};
+
+glsProxyCardMargin: margins(16px, 8px, 16px, 4px);
+glsProxyCardPadding: margins(16px, 16px, 16px, 16px);
+glsProxyCardRadius: 18px;
+glsProxyCardIcon: 48px;
+glsProxyCardIconSkip: 14px;
+glsProxyCardTitle: font(16px semibold);
+glsProxyCardText: font(13px);
+glsProxyCardTileTop: 14px;
+glsProxyCardTileHeight: 52px;
+glsProxyCardTileSkip: 8px;
+glsProxyCardTileRadius: 12px;
+glsProxyCardButtonsTop: 12px;
+glsProxyCardButton: RoundButton(defaultLightButton) {
+	width: -32px;
+	height: 40px;
+	radius: 12px;
+	textTop: 11px;
+}
+glsProxyRadio: settingsCheckbox;
+glsProxyRadioPadding: margins(22px, 8px, 22px, 0px);
+glsProxyRadioAbout: FlatLabel(defaultFlatLabel) {
+	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(13px);
+	}
+	minWidth: 200px;
+}
+glsProxyRadioAboutPadding: margins(67px, 0px, 22px, 4px);
+glsProxyField: defaultInputField;
+glsProxyFieldPadding: margins(22px, 0px, 22px, 6px);
+glsProxyDcHeight: 52px;
+glsProxyDcPadding: margins(24px, 8px, 24px, 8px);
+glsProxyDcBadge: 36px;
+glsProxyDcBadgeRadius: 10px;
+glsProxyDcChipHeight: 22px;
+glsProxyDcChipPadding: 8px;
+glsProxyLogLabel: FlatLabel(defaultFlatLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: font(11px);
+	}
+	minWidth: 360px;
+}

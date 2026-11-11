@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/sections/settings_main.h"
 
+#include "gls/gls_lang.h"
+#include "gls/gls_proxy_section.h"
+
 #include "settings/settings_common_session.h"
 
 #include "api/api_cloud_password.h"
@@ -432,6 +435,15 @@ void BuildSectionButtons(SectionBuilder &builder) {
 			.shown = std::move(shownProducer),
 		});
 	}
+
+	builder.addButton({
+		.id = u"main/gls-proxy"_q,
+		.title = rpl::single(Gls::Tr("Прокси", "Proxy")),
+		.icon = { &st::menuIconNetwork },
+		.label = Gls::ProxyStatusValue(),
+		.onClick = [=] { showOther(Gls::ProxySectionId()); },
+		.keywords = { u"proxy"_q, u"tg-ws-proxy"_q, u"cloudflare"_q },
+	});
 
 	builder.addSectionButton({
 		.title = tr::lng_settings_advanced(),

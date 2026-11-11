@@ -81,8 +81,8 @@ Source: "{#ReleasePath}\Telegram.exe"; DestDir: "{app}"; Flags: ignoreversion
 #if FileExists(ReleasePath + "\Updater.exe")
 Source: "{#ReleasePath}\Updater.exe"; DestDir: "{app}"; Flags: ignoreversion
 #endif
-#if FileExists(ReleasePath + "\tg-ws-proxy.exe")
-Source: "{#ReleasePath}\tg-ws-proxy.exe"; DestDir: "{app}"; Flags: ignoreversion
+#if FileExists(ReleasePath + "\gls_proxy.dll")
+Source: "{#ReleasePath}\gls_proxy.dll"; DestDir: "{app}"; Flags: ignoreversion
 #endif
 #if MyBuildTarget != "winarm"
 #if FileExists(ReleasePath + "\" + ModulesFolder + "\d3d\d3dcompiler_47.dll")
@@ -98,6 +98,9 @@ Name: "{userdesktop}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Task
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppShortName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[InstallDelete]
+Type: files; Name: "{app}\tg-ws-proxy.exe"
 
 [UninstallDelete]
 Type: files; Name: "{app}\data"

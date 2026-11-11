@@ -8,7 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "gls/gls_settings.h"
 
 #include "gls/gls_glass.h"
-#include "lang/lang_instance.h"
+#include "gls/gls_lang.h"
 #include "settings/settings_common.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/continuous_sliders.h"
@@ -26,13 +26,6 @@ namespace Gls {
 namespace {
 
 constexpr auto kTintStep = 5;
-
-// The fork has no phrases in the cloud language packs
-[[nodiscard]] QString Tr(const char *russian, const char *english) {
-	return Lang::GetInstance().id().startsWith(u"ru"_q)
-		? QString::fromUtf8(russian)
-		: QString::fromUtf8(english);
-}
 
 void AddSlider(
 		not_null<Ui::VerticalLayout*> container,
