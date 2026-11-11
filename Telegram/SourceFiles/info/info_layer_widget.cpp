@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mainwidget.h"
 
 #include "info/info_content_widget.h"
+#include "info/info_controller.h"
 #include "info/info_top_bar.h"
 #include "info/info_memento.h"
 #include "ui/rp_widget.h"

@@ -105,6 +105,7 @@ class MainWidget final
 	: public Ui::RpWidget
 	, private Media::Player::FloatDelegate {
 public:
+	[[nodiscard]] QRect glsDialogsGeometry() const;
 	using SectionShow = Window::SectionShow;
 
 	MainWidget(
@@ -338,7 +339,6 @@ private:
 		MsgId showAtMsgId);
 
 	bool isOneColumn() const;
-	[[nodiscard]] QRect glsDialogsGeometry() const;
 	bool isNormalColumn() const;
 	bool isThreeColumn() const;
 
