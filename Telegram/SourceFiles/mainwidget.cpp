@@ -302,6 +302,10 @@ MainWidget::MainWidget(
 	) | rpl::on_next([=] {
 		update();
 	}, lifetime());
+	Gls::SettingsChanges(
+	) | rpl::on_next([=] {
+		updateControlsGeometry();
+	}, lifetime());
 
 	Core::App().calls().currentCallValue(
 	) | rpl::on_next([=](Calls::Call *call) {
@@ -2802,7 +2806,10 @@ void MainWidget::updateControlsGeometry() {
 		auto thirdSectionWidth = _thirdSection ? _thirdColumnWidth : 0;
 		if (_thirdSection) {
 			auto thirdSectionTop = getThirdSectionTop() + glassTop;
-			Gls::SetFloatingPanel(_controller, _thirdSection.data(), true);
+			Gls::SetFloatingPanel(
+				_controller,
+				_thirdSection.data(),
+				Gls::GlassGaps());
 			_thirdSection->setGeometry(
 				width() - thirdSectionWidth,
 				thirdSectionTop,
@@ -2815,7 +2822,10 @@ void MainWidget::updateControlsGeometry() {
 			accumulate_min(
 				dialogsWidth,
 				width() - st::columnMinimalWidthMain);
-			Gls::SetFloatingPanel(_controller, _dialogs.get(), true);
+			Gls::SetFloatingPanel(
+				_controller,
+				_dialogs.get(),
+				Gls::GlassGaps());
 			_dialogs->setGeometryToLeft(
 				glassMargin,
 				glassTop,

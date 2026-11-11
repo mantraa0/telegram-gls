@@ -23,10 +23,31 @@ jobs:
       run:
         shell: cmd
     steps:
+      # The cached libraries remember their real paths, so they are restored
+      # to the same place as in the full build, which needs room on C:
+      - name: Free disk space
+        shell: pwsh
+        run: |
+          $dirs = @(
+            'C:\Android', 'C:\Program Files (x86)\Android', 'C:\Program Files\Android',
+            'C:\hostedtoolcache\windows\CodeQL', 'C:\hostedtoolcache\windows\go',
+            'C:\hostedtoolcache\windows\PyPy', 'C:\hostedtoolcache\windows\Ruby',
+            'C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk', 'C:\Strawberry', 'C:\Miniconda',
+            'C:\ghcup', 'C:\Program Files\Haskell', 'C:\Program Files\Microsoft SQL Server',
+            'C:\Program Files\PostgreSQL', 'C:\Program Files\MongoDB', 'C:\Program Files\Mozilla Firefox',
+            'C:\SeleniumWebDrivers', 'C:\Julia', 'C:\tools\php', 'C:\Program Files\Azure Cosmos DB Emulator',
+            'C:\Program Files\Google\Chrome', 'C:\msys64'
+          )
+          $jobs = foreach ($d in $dirs) {
+            if (Test-Path $d) { Start-Job -ScriptBlock { param($p) cmd /c "rmdir /s /q `"$p`"" } -ArgumentList $d }
+          }
+          if ($jobs) { $jobs | Wait-Job | Out-Null }
+          Get-PSDrive C | Format-Table Used, Free
+
       - name: Prepare directories
         run: |
-          mkdir D:\TBuild\Libraries
-          mklink /d %GITHUB_WORKSPACE%\TBuild D:\TBuild
+          mkdir %userprofile%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
           echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
           echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
 
@@ -70,9 +91,16 @@ jobs:
             gls-libs-${{ env.CACHE_KEY }}-
           fail-on-cache-miss: true
 
+      # Fails fast instead of rebuilding libraries that miss the cache
       - name: Check libraries
+        timeout-minutes: 10
         run: |
           %TBUILD%\tdesktop\Telegram\build\prepare\win.bat silent
+
+      - name: Move build output to D
+        run: |
+          mkdir D:\gls-out
+          mklink /j %TBUILD%\tdesktop\out D:\gls-out
 
       - name: Configure
         run: |

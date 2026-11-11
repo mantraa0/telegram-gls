@@ -18,6 +18,27 @@ class SessionController;
 
 namespace Gls {
 
+inline constexpr auto kDefaultTint = 58;
+inline constexpr auto kMinTint = 20;
+inline constexpr auto kMaxTint = 100;
+inline constexpr auto kDefaultBlur = 8;
+inline constexpr auto kMaxBlur = 20;
+inline constexpr auto kDefaultRadius = 16;
+inline constexpr auto kMaxRadius = 28;
+
+// Appearance settings, stored with the other app options
+[[nodiscard]] bool GlassEnabled();
+[[nodiscard]] int GlassTint();
+[[nodiscard]] int GlassBlur();
+[[nodiscard]] int GlassRadiusSetting();
+[[nodiscard]] bool GlassGaps();
+void SetGlassEnabled(bool enabled);
+void SetGlassTint(int tint);
+void SetGlassBlur(int blur);
+void SetGlassRadius(int radius);
+void SetGlassGaps(bool gaps);
+[[nodiscard]] rpl::producer<> SettingsChanges();
+
 // The chat wallpaper spans the whole window body: the chat area, the gaps
 // between panels and the frosted panels all show one continuous image
 [[nodiscard]] QSize WallpaperSize(
@@ -45,7 +66,8 @@ void PaintGlass(
 	int radius);
 
 // Called after the wallpaper is painted, fires `BackdropChanges` when
-// the wallpaper image differs from the one the panels show
+// the wallpaper image differs from the one the panels show. Changes of
+// the appearance settings are reported there as well.
 void TrackBackdrop(not_null<Ui::ChatTheme*> theme, QSize fill);
 [[nodiscard]] rpl::producer<> BackdropChanges();
 

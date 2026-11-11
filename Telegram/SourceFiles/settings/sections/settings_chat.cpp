@@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/vertical_list.h"
 #include "ui/ui_utility.h"
 #include "ui/widgets/menu/menu_add_action_callback.h"
+#include "gls/gls_settings.h"
 #include "history/view/history_view_quick_action.h"
 #include "lang/lang_keys.h"
 #include "lottie/lottie_icon.h"
@@ -759,6 +760,27 @@ void BuildThemeOptionsSection(SectionBuilder &builder) {
 	}
 }
 
+void BuildGlassSection(SectionBuilder &builder) {
+	builder.add([](const WidgetContext &ctx) {
+		Gls::SetupGlassSettings(ctx.container.get());
+		return SectionBuilder::WidgetToAdd{};
+	}, [] {
+		return SearchEntry{
+			.id = u"chat/liquid-glass"_q,
+			.title = Gls::GlassSettingsTitle(),
+			.keywords = {
+				u"glass"_q,
+				u"blur"_q,
+				u"transparency"_q,
+				u"стекло"_q,
+				u"размытие"_q,
+				u"прозрачность"_q,
+			},
+			.icon = { &st::menuIconPalette },
+		};
+	});
+}
+
 void BuildThemeSettingsSection(SectionBuilder &builder) {
 	const auto controller = builder.controller();
 
@@ -1225,6 +1247,7 @@ void BuildSupportSection(SectionBuilder &builder) {
 
 void BuildChatSectionContent(SectionBuilder &builder) {
 	BuildThemeOptionsSection(builder);
+	BuildGlassSection(builder);
 	BuildThemeSettingsSection(builder);
 	BuildCloudThemesSection(builder);
 	BuildChatBackgroundSection(builder);

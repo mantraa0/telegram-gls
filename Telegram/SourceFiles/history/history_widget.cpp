@@ -398,6 +398,11 @@ HistoryWidget::HistoryWidget(
 		update();
 	}, lifetime());
 
+	Gls::SettingsChanges() | rpl::on_next([=] {
+		updateControlsGeometry();
+		update();
+	}, lifetime());
+
 	_scroll->setHandleTouch(false);
 	_scroll->lockWheelDirection();
 	const auto crossAxis = [=](QPoint delta, Qt::ScrollPhase phase) {

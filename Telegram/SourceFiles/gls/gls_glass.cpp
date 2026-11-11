@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "gls/gls_glass.h"
 
 #include "base/event_filter.h"
+#include "base/options.h"
 #include "mainwindow.h"
 #include "ui/chat/chat_theme.h"
 #include "ui/image/image_prepare.h"
@@ -26,15 +27,11 @@ namespace Gls {
 namespace {
 
 constexpr auto kDownscale = 6;
-constexpr auto kBlurRadius = 8;
-constexpr auto kTintAlpha = 0.58;
 constexpr auto kSheenAlpha = 0.07;
 constexpr auto kBorderAlpha = 0.12;
 constexpr auto kHighlightAlpha = 0.30;
 constexpr auto kRowOverAlpha = 0.08;
 constexpr auto kMargin = 8;
-constexpr auto kRadius = 16;
-constexpr auto kBarRadius = 16;
 constexpr auto kRowInset = 6;
 constexpr auto kRowRadius = 10;
 constexpr auto kMaxTrackedBackdrops = 16;
@@ -43,10 +40,52 @@ constexpr auto kBackdropFadeDuration = 250;
 const auto kCornerName = QString("glsCorner");
 const auto kFloatingProperty = "glsFloating";
 
+const char kOptionGlass[] = "gls-glass";
+const char kOptionGlassTint[] = "gls-glass-tint";
+const char kOptionGlassBlur[] = "gls-glass-blur";
+const char kOptionGlassRadius[] = "gls-glass-radius";
+const char kOptionGlassGaps[] = "gls-glass-gaps";
+
+base::options::toggle OptionGlass({
+	.id = kOptionGlass,
+	.name = "Liquid glass",
+	.description = "Frosted translucent panels over the chat wallpaper.",
+	.defaultValue = true,
+});
+
+base::options::option<int> OptionGlassTint({
+	.id = kOptionGlassTint,
+	.name = "Liquid glass tint",
+	.description = "Opacity of the glass tint, in percent.",
+	.defaultValue = kDefaultTint,
+});
+
+base::options::option<int> OptionGlassBlur({
+	.id = kOptionGlassBlur,
+	.name = "Liquid glass blur",
+	.description = "Blur radius of the wallpaper under the glass.",
+	.defaultValue = kDefaultBlur,
+});
+
+base::options::option<int> OptionGlassRadius({
+	.id = kOptionGlassRadius,
+	.name = "Liquid glass corners",
+	.description = "Corner radius of the glass panels, in pixels.",
+	.defaultValue = kDefaultRadius,
+});
+
+base::options::toggle OptionGlassGaps({
+	.id = kOptionGlassGaps,
+	.name = "Liquid glass gaps",
+	.description = "Float the panels with gaps between them.",
+	.defaultValue = true,
+});
+
 struct BlurredWallpaper {
 	const Ui::ChatTheme *theme = nullptr;
 	qint64 key = 0;
 	QSize fill;
+	int blur = -1;
 	QImage image;
 	int serial = 0;
 };
@@ -56,6 +95,7 @@ struct PanelCache {
 	QSize size;
 	QPoint position;
 	QRgb tint = 0;
+	qint64 settings = 0;
 	int radius = 0;
 	int ratio = 0;
 	int serial = -1;
@@ -83,9 +123,11 @@ struct PanelCache {
 	static auto result = BlurredWallpaper();
 
 	const auto key = BackgroundKey(theme, theme->backgroundState(fill));
+	const auto blur = GlassBlur();
 	if (result.theme == theme
 		&& result.key == key
 		&& result.fill == fill
+		&& result.blur == blur
 		&& !result.image.isNull()) {
 		return result;
 	}
@@ -110,9 +152,16 @@ struct PanelCache {
 	result.theme = theme;
 	result.key = key;
 	result.fill = fill;
-	result.image = Images::BlurLargeImage(std::move(image), kBlurRadius);
+	result.blur = blur;
+	result.image = Images::BlurLargeImage(std::move(image), blur);
 	++result.serial;
 	return result;
+}
+
+[[nodiscard]] qint64 SettingsKey() {
+	return (qint64(GlassEnabled() ? 1 : 0) << 32)
+		| (qint64(GlassTint()) << 16)
+		| qint64(GlassBlur());
 }
 
 [[nodiscard]] std::map<const QWidget*, PanelCache> &PanelCaches() {
@@ -145,31 +194,39 @@ void RenderPanel(
 	image.fill(Qt::transparent);
 
 	const auto full = QRectF(QPointF(), QSizeF(size));
+	const auto enabled = GlassEnabled();
 	auto q = QPainter(&image);
 	q.setRenderHint(QPainter::SmoothPixmapTransform);
-
-	const auto sx = blurred.image.width() / float64(blurred.fill.width());
-	const auto sy = blurred.image.height() / float64(blurred.fill.height());
-	q.drawImage(full, blurred.image, QRectF(
-		position.x() * sx,
-		position.y() * sy,
-		size.width() * sx,
-		size.height() * sy));
-
-	auto tint = st::windowBg->c;
-	tint.setAlphaF(kTintAlpha);
-	q.fillRect(full, tint);
 
 	auto white = QColor(255, 255, 255);
 	auto clear = white;
 	clear.setAlphaF(0.);
-	auto sheenColor = white;
-	sheenColor.setAlphaF(kSheenAlpha);
-	const auto diagonal = std::min(size.width(), size.height());
-	auto sheen = QLinearGradient(QPointF(), QPointF(diagonal, diagonal));
-	sheen.setColorAt(0., sheenColor);
-	sheen.setColorAt(1., clear);
-	q.fillRect(full, sheen);
+	if (enabled) {
+		const auto sx = blurred.image.width() / float64(blurred.fill.width());
+		const auto sy = blurred.image.height()
+			/ float64(blurred.fill.height());
+		q.drawImage(full, blurred.image, QRectF(
+			position.x() * sx,
+			position.y() * sy,
+			size.width() * sx,
+			size.height() * sy));
+
+		auto tint = st::windowBg->c;
+		tint.setAlphaF(GlassTint() / 100.);
+		q.fillRect(full, tint);
+
+		auto sheenColor = white;
+		sheenColor.setAlphaF(kSheenAlpha);
+		const auto diagonal = std::min(size.width(), size.height());
+		auto sheen = QLinearGradient(
+			QPointF(),
+			QPointF(diagonal, diagonal));
+		sheen.setColorAt(0., sheenColor);
+		sheen.setColorAt(1., clear);
+		q.fillRect(full, sheen);
+	} else {
+		q.fillRect(full, st::windowBg);
+	}
 
 	auto hq = PainterHighQualityEnabler(q);
 	if (radius > 0) {
@@ -182,7 +239,8 @@ void RenderPanel(
 		q.setBrush(Qt::black);
 		q.drawPath(outside);
 		q.setCompositionMode(QPainter::CompositionMode_SourceOver);
-
+	}
+	if (radius > 0 && enabled) {
 		const auto half = 0.5;
 		const auto edge = full.marginsRemoved({ half, half, half, half });
 		auto border = white;
@@ -207,6 +265,7 @@ void RenderPanel(
 	cache.size = size;
 	cache.position = position;
 	cache.tint = st::windowBg->c.rgba();
+	cache.settings = SettingsKey();
 	cache.radius = radius;
 	cache.ratio = ratio;
 	cache.serial = blurred.serial;
@@ -305,7 +364,8 @@ void PaintGlass(
 		|| cache.position != position
 		|| cache.radius != radius
 		|| cache.ratio != style::DevicePixelRatio()
-		|| cache.tint != st::windowBg->c.rgba()) {
+		|| cache.tint != st::windowBg->c.rgba()
+		|| cache.settings != SettingsKey()) {
 		RenderPanel(cache, blurred, rect.size(), position, radius);
 	}
 	p.drawImage(rect.topLeft(), cache.image);
@@ -337,7 +397,7 @@ void TrackBackdrop(not_null<Ui::ChatTheme*> theme, QSize fill) {
 }
 
 rpl::producer<> BackdropChanges() {
-	return BackdropChangesStream().events();
+	return rpl::merge(BackdropChangesStream().events(), SettingsChanges());
 }
 
 void SetFloatingPanel(
@@ -362,7 +422,6 @@ void SetFloatingPanel(
 		return;
 	}
 
-	const auto radius = GlassRadius();
 	const auto positions = {
 		std::pair{ true, true },
 		std::pair{ false, true },
@@ -376,8 +435,11 @@ void SetFloatingPanel(
 		corner->setObjectName(kCornerName);
 		corner->setAttribute(Qt::WA_TransparentForMouseEvents);
 		corner->setVisible(floating);
-		panel->sizeValue(
-		) | rpl::on_next([=](QSize size) {
+		rpl::combine(
+			panel->sizeValue(),
+			rpl::single(rpl::empty) | rpl::then(SettingsChanges())
+		) | rpl::on_next([=](QSize size, auto) {
+			const auto radius = GlassRadius();
 			corner->setGeometry(
 				left ? 0 : (size.width() - radius),
 				top ? 0 : (size.height() - radius),
@@ -387,6 +449,7 @@ void SetFloatingPanel(
 		}, corner->lifetime());
 		corner->paintRequest(
 		) | rpl::on_next([=] {
+			const auto radius = corner->width();
 			auto p = QPainter(corner);
 			PaintCorner(
 				p,
@@ -446,19 +509,68 @@ void PaintRowBackground(
 }
 
 int GlassMargin() {
-	return style::ConvertScale(kMargin);
+	return GlassGaps() ? style::ConvertScale(kMargin) : 0;
 }
 
 int GlassRadius() {
-	return style::ConvertScale(kRadius);
+	return style::ConvertScale(GlassRadiusSetting());
 }
 
 int BarRadius() {
-	return style::ConvertScale(kBarRadius);
+	return GlassGaps() ? GlassRadius() : 0;
 }
 
 int ComposeSkip() {
 	return GlassMargin() + st::historySendRight;
+}
+
+bool GlassEnabled() {
+	return OptionGlass.value();
+}
+
+int GlassTint() {
+	return std::clamp(OptionGlassTint.value(), kMinTint, kMaxTint);
+}
+
+int GlassBlur() {
+	return std::clamp(OptionGlassBlur.value(), 0, kMaxBlur);
+}
+
+int GlassRadiusSetting() {
+	return std::clamp(OptionGlassRadius.value(), 0, kMaxRadius);
+}
+
+bool GlassGaps() {
+	return OptionGlassGaps.value();
+}
+
+void SetGlassEnabled(bool enabled) {
+	OptionGlass.set(enabled);
+}
+
+void SetGlassTint(int tint) {
+	OptionGlassTint.set(tint);
+}
+
+void SetGlassBlur(int blur) {
+	OptionGlassBlur.set(blur);
+}
+
+void SetGlassRadius(int radius) {
+	OptionGlassRadius.set(radius);
+}
+
+void SetGlassGaps(bool gaps) {
+	OptionGlassGaps.set(gaps);
+}
+
+rpl::producer<> SettingsChanges() {
+	return rpl::merge(
+		OptionGlass.changes(),
+		OptionGlassTint.changes(),
+		OptionGlassBlur.changes(),
+		OptionGlassRadius.changes(),
+		OptionGlassGaps.changes());
 }
 
 } // namespace Gls
