@@ -77,7 +77,7 @@ void AddSlider(
 		});
 }
 
-[[nodiscard]] not_null<Ui::SettingsButton*> AddToggle(
+not_null<Ui::SettingsButton*> AddToggle(
 		not_null<Ui::VerticalLayout*> container,
 		const QString &text,
 		bool current,

@@ -811,7 +811,6 @@ Widget::Widget(
 
 		_childListShown.changes(
 		) | rpl::on_next([=] {
-			_scroll->setOverscrollBg(overscrollBg());
 			updateControlsGeometry();
 		}, lifetime());
 
